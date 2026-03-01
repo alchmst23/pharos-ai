@@ -6,19 +6,19 @@ import DeckGL from '@deck.gl/react';
 import Map from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
-import type { MapViewState } from '@deck.gl/core';
-import type { PickingInfo } from '@deck.gl/core';
+import type { MapViewState, PickingInfo } from '@deck.gl/core';
 import type { StyleSpecification } from 'maplibre-gl';
 
 import { useMapFilters } from '@/hooks/use-map-filters';
 import { useMapLayers } from '@/hooks/use-map-layers';
 import { buildTooltip } from '@/lib/map-tooltip';
 
-import MapSidebar from '@/components/map/MapSidebar';
-import MapControls from '@/components/map/MapControls';
-import MapOverlays from '@/components/map/MapOverlays';
+import MapSidebar    from '@/components/map/MapSidebar';
+import MapControls   from '@/components/map/MapControls';
+import MapOverlays   from '@/components/map/MapOverlays';
 import MapDetailPanel from '@/components/map/MapDetailPanel';
-import MapLegend from '@/components/map/MapLegend';
+import MapLegend     from '@/components/map/MapLegend';
+import MapFilterPanel from '@/components/map/MapFilterPanel';
 
 import type { MapStory } from '@/data/mapStories';
 import type { SelectedItem } from '@/components/map/MapDetailPanel';
@@ -51,10 +51,10 @@ export default function FullMapPage() {
   const [sidebarOpen,  setSidebarOpen]  = useState(true);
   const [mapStyle,     setMapStyle]     = useState<'dark' | 'satellite'>('dark');
 
-  const filters = useMapFilters();
+  const f = useMapFilters();
 
   const layers = useMapLayers({
-    filtered:    { strikes: filters.strikes, missiles: filters.missiles, targets: filters.targets, assets: filters.assets, zones: filters.zones, heat: filters.heat },
+    filtered:    { strikes: f.strikes, missiles: f.missiles, targets: f.targets, assets: f.assets, zones: f.zones, heat: f.heat },
     activeStory,
     isSatellite: mapStyle === 'satellite',
   });
@@ -67,41 +67,30 @@ export default function FullMapPage() {
   const handleMapClick = useCallback(({ object, layer }: PickingInfo) => {
     if (!object || !layer) { setSelectedItem(null); return; }
     const id = layer.id;
-    if (id === 'strikes' || id === 'strike-labels')             setSelectedItem({ type: 'strike',  data: object as StrikeArc   });
-    else if (id === 'missiles')                                  setSelectedItem({ type: 'missile', data: object as MissileTrack });
-    else if (id === 'targets' || id === 'target-labels')         setSelectedItem({ type: 'target',  data: object as Target      });
-    else if (id === 'assets'  || id === 'asset-labels')          setSelectedItem({ type: 'asset',   data: object as Asset       });
-    else if (id === 'zones')                                     setSelectedItem({ type: 'zone',    data: object as ThreatZone  });
+    if (id === 'strikes')                              setSelectedItem({ type: 'strike',  data: object as StrikeArc   });
+    else if (id === 'missiles')                        setSelectedItem({ type: 'missile', data: object as MissileTrack });
+    else if (id === 'targets' || id === 'target-labels') setSelectedItem({ type: 'target',  data: object as Target      });
+    else if (id === 'assets'  || id === 'asset-labels')  setSelectedItem({ type: 'asset',   data: object as Asset       });
+    else if (id === 'zones')                           setSelectedItem({ type: 'zone',    data: object as ThreatZone  });
     else setSelectedItem(null);
   }, []);
 
   return (
-    <div className="flex" style={{ width: '100%', height: '100%', background: 'var(--bg-app)', overflow: 'hidden', fontFamily: 'SFMono-Regular,Menlo,monospace' }}>
+    <div className="flex" style={{ width: '100%', height: '100%', background: 'var(--bg-app)', overflow: 'hidden' }}>
+
       <MapSidebar
         isOpen={sidebarOpen}
         activeStory={activeStory}
-        actors={filters.actors}
-        categories={filters.categories}
-        statuses={filters.statuses}
-        showHeat={filters.showHeat}
         onToggle={() => setSidebarOpen(o => !o)}
         onActivateStory={handleActivateStory}
         onClearStory={() => setActiveStory(null)}
-        onToggleActor={filters.toggleActor}
-        onToggleCategory={filters.toggleCategory}
-        onToggleStatus={filters.toggleStatus}
-        onToggleHeat={filters.toggleHeat}
-        onReset={filters.resetFilters}
       />
 
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
         <DeckGL
           viewState={viewState}
           onViewStateChange={({ viewState: vs }) => setViewState(vs as MapViewState)}
-          controller
-          layers={layers}
-          getTooltip={buildTooltip}
-          onClick={handleMapClick}
+          controller layers={layers} getTooltip={buildTooltip} onClick={handleMapClick}
           style={{ width: '100%', height: '100%' }}
         >
           <Map mapStyle={mapStyle === 'dark' ? MAP_STYLE_DARK : MAP_STYLE_SAT} />
@@ -110,6 +99,18 @@ export default function FullMapPage() {
         <MapOverlays activeStory={activeStory} onClearStory={() => setActiveStory(null)} />
         <MapLegend hasPanel={!!selectedItem} />
         <MapControls viewState={viewState} mapStyle={mapStyle} hasPanel={!!selectedItem} onStyleChange={setMapStyle} />
+
+        {/* Filter panel — top right */}
+        <div style={{ position: 'absolute', top: 12, right: selectedItem ? 332 : 12, zIndex: 10, transition: 'right 0.22s cubic-bezier(0.4,0,0.2,1)' }}>
+          <MapFilterPanel
+            layers={f.layers} actors={f.actors} priorities={f.priorities} statuses={f.statuses}
+            isFiltered={f.isFiltered}
+            onToggleLayer={f.toggleLayer} onToggleActor={f.toggleActor}
+            onTogglePriority={f.togglePriority} onToggleStatus={f.toggleStatus}
+            onReset={f.resetFilters}
+          />
+        </div>
+
         <MapDetailPanel item={selectedItem} onClose={() => setSelectedItem(null)} onSelectItem={setSelectedItem} onActivateStory={handleActivateStory} />
       </div>
     </div>

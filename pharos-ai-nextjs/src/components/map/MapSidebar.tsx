@@ -5,37 +5,24 @@ import { useState } from 'react';
 import StoryCard from './StoryCard';
 import StoryIcon from './StoryIcon';
 import StoryTimeline from './StoryTimeline';
-import MapFilterRail from './MapFilterRail';
 
 import { MAP_STORIES } from '@/data/mapStories';
 
 import type { MapStory } from '@/data/mapStories';
-import type { FilterState } from '@/hooks/use-map-filters';
-import type { Actor, MarkerCategory, MarkerStatus } from '@/data/mapTokens';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Props = FilterState & {
-  isOpen:           boolean;
-  activeStory:      MapStory | null;
-  onToggle:         () => void;
-  onActivateStory:  (story: MapStory) => void;
-  onClearStory:     () => void;
-  onToggleActor:    (a: Actor) => void;
-  onToggleCategory: (c: MarkerCategory) => void;
-  onToggleStatus:   (s: MarkerStatus) => void;
-  onToggleHeat:     () => void;
-  onReset:          () => void;
+type Props = {
+  isOpen:          boolean;
+  activeStory:     MapStory | null;
+  onToggle:        () => void;
+  onActivateStory: (story: MapStory) => void;
+  onClearStory:    () => void;
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function MapSidebar({
-  isOpen, activeStory,
-  actors, categories, statuses, showHeat,
-  onToggle, onActivateStory, onClearStory,
-  onToggleActor, onToggleCategory, onToggleStatus, onToggleHeat, onReset,
-}: Props) {
+export default function MapSidebar({ isOpen, activeStory, onToggle, onActivateStory, onClearStory }: Props) {
   const [openStoryId, setOpenStoryId] = useState<string | null>(null);
 
   const handleToggleStory = (story: MapStory) => {
@@ -94,15 +81,6 @@ export default function MapSidebar({
             activeId={activeStory?.id ?? null}
             onActivate={(story) => { setOpenStoryId(story.id); onActivateStory(story); }}
           />
-
-          {/* Filter rail */}
-          <div style={{ padding: '8px 8px 0', flexShrink: 0, borderBottom: '1px solid var(--bd-s)' }}>
-            <MapFilterRail
-              actors={actors} categories={categories} statuses={statuses} showHeat={showHeat}
-              onToggleActor={onToggleActor} onToggleCategory={onToggleCategory}
-              onToggleStatus={onToggleStatus} onToggleHeat={onToggleHeat} onReset={onReset}
-            />
-          </div>
 
           {/* Stories list */}
           <div className="panel-body">

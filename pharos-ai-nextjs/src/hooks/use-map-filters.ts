@@ -1,29 +1,31 @@
 import { useState, useMemo, useCallback } from 'react';
 
-import {
-  STRIKE_ARCS,
-  MISSILE_TRACKS,
-  TARGETS,
-  ALLIED_ASSETS,
-  THREAT_ZONES,
-  HEAT_POINTS,
-} from '@/data/mapData';
-import {
-  ALL_ACTORS,
-  ALL_CATEGORIES,
-  ALL_STATUSES,
-} from '@/data/mapTokens';
+import { STRIKE_ARCS, MISSILE_TRACKS, TARGETS, ALLIED_ASSETS, THREAT_ZONES, HEAT_POINTS } from '@/data/mapData';
+import { ALL_ACTORS, ALL_STATUSES, ALL_PRIORITIES } from '@/data/mapTokens';
 
 import type { StrikeArc, MissileTrack, Target, Asset, ThreatZone, HeatPoint } from '@/data/mapData';
-import type { Actor, MarkerCategory, MarkerStatus } from '@/data/mapTokens';
+import type { Actor, MarkerStatus, Priority } from '@/data/mapTokens';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+export type LayerName = 'strikes' | 'missiles' | 'targets' | 'assets' | 'zones' | 'heat';
+
+export const ALL_LAYERS: LayerName[] = ['strikes', 'missiles', 'targets', 'assets', 'zones', 'heat'];
+
+export const LAYER_LABEL: Record<LayerName, string> = {
+  strikes:  'STRIKES',
+  missiles: 'MISSILES',
+  targets:  'TARGETS',
+  assets:   'ASSETS',
+  zones:    'ZONES',
+  heat:     'HEAT',
+};
+
 export type FilterState = {
-  actors:     Set<Actor>;
-  categories: Set<MarkerCategory>;
-  statuses:   Set<MarkerStatus>;
-  showHeat:   boolean;
+  layers:     Set<LayerName>;   // Level 1 — which data types
+  actors:     Set<Actor>;       // Level 2 — who
+  priorities: Set<Priority>;    // Level 3 — strategic importance
+  statuses:   Set<MarkerStatus>; // Level 3 — current state
 };
 
 export type FilteredData = {
@@ -36,87 +38,66 @@ export type FilteredData = {
 };
 
 export type UseMapFiltersReturn = FilterState & FilteredData & {
+  toggleLayer:    (l: LayerName) => void;
   toggleActor:    (a: Actor) => void;
-  toggleCategory: (c: MarkerCategory) => void;
+  togglePriority: (p: Priority) => void;
   toggleStatus:   (s: MarkerStatus) => void;
-  toggleHeat:     () => void;
   resetFilters:   () => void;
+  isFiltered:     boolean;
 };
 
-// ─── Defaults ─────────────────────────────────────────────────────────────────
+// ─── Default state ────────────────────────────────────────────────────────────
 
 const DEFAULT_STATE: FilterState = {
+  layers:     new Set(ALL_LAYERS),
   actors:     new Set(ALL_ACTORS),
-  categories: new Set(ALL_CATEGORIES),
+  priorities: new Set(ALL_PRIORITIES),
   statuses:   new Set(ALL_STATUSES),
-  showHeat:   true,
 };
+
+// ─── Toggle factory — prevents empty sets ────────────────────────────────────
+
+function toggle<T>(prev: Set<T>, item: T): Set<T> {
+  const next = new Set(prev);
+  next.has(item) ? next.delete(item) : next.add(item);
+  return next.size === 0 ? prev : next;
+}
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useMapFilters(): UseMapFiltersReturn {
   const [state, setState] = useState<FilterState>(DEFAULT_STATE);
 
-  const toggleActor = useCallback((a: Actor) => {
-    setState(prev => {
-      const next = new Set(prev.actors);
-      next.has(a) ? next.delete(a) : next.add(a);
-      // Always keep at least one actor active
-      if (next.size === 0) return prev;
-      return { ...prev, actors: next };
-    });
-  }, []);
+  const toggleLayer    = useCallback((l: LayerName)   => setState(p => ({ ...p, layers:     toggle(p.layers,     l) })), []);
+  const toggleActor    = useCallback((a: Actor)        => setState(p => ({ ...p, actors:     toggle(p.actors,     a) })), []);
+  const togglePriority = useCallback((p: Priority)     => setState(prev => ({ ...prev, priorities: toggle(prev.priorities, p) })), []);
+  const toggleStatus   = useCallback((s: MarkerStatus) => setState(p => ({ ...p, statuses:   toggle(p.statuses,   s) })), []);
+  const resetFilters   = useCallback(() => setState(DEFAULT_STATE), []);
 
-  const toggleCategory = useCallback((c: MarkerCategory) => {
-    setState(prev => {
-      const next = new Set(prev.categories);
-      next.has(c) ? next.delete(c) : next.add(c);
-      if (next.size === 0) return prev;
-      return { ...prev, categories: next };
-    });
-  }, []);
-
-  const toggleStatus = useCallback((s: MarkerStatus) => {
-    setState(prev => {
-      const next = new Set(prev.statuses);
-      next.has(s) ? next.delete(s) : next.add(s);
-      if (next.size === 0) return prev;
-      return { ...prev, statuses: next };
-    });
-  }, []);
-
-  const toggleHeat = useCallback(() => {
-    setState(prev => ({ ...prev, showHeat: !prev.showHeat }));
-  }, []);
-
-  const resetFilters = useCallback(() => {
-    setState(DEFAULT_STATE);
-  }, []);
-
-  // Derived filtered datasets — recompute only when filter state changes
   const filtered = useMemo<FilteredData>(() => {
-    const { actors, categories, statuses, showHeat } = state;
-    const showKinetic      = categories.has('KINETIC');
-    const showInstallation = categories.has('INSTALLATION');
-    const showZone         = categories.has('ZONE');
+    const { layers, actors, priorities, statuses } = state;
+
+    const keep = (d: { actor: Actor; priority: Priority; status: MarkerStatus }) =>
+      actors.has(d.actor) && priorities.has(d.priority) && statuses.has(d.status);
+
+    const keepZone = (d: { actor: Actor; priority: Priority }) =>
+      actors.has(d.actor) && priorities.has(d.priority);
 
     return {
-      strikes:  showKinetic      ? STRIKE_ARCS.filter(d => actors.has(d.actor) && statuses.has(d.status))  : [],
-      missiles: showKinetic      ? MISSILE_TRACKS.filter(d => actors.has(d.actor) && statuses.has(d.status)) : [],
-      targets:  showInstallation ? TARGETS.filter(d => actors.has(d.actor) && statuses.has(d.status))       : [],
-      assets:   showInstallation ? ALLIED_ASSETS.filter(d => actors.has(d.actor) && statuses.has(d.status)) : [],
-      zones:    showZone         ? THREAT_ZONES.filter(d => actors.has(d.actor))                             : [],
-      heat:     showHeat         ? HEAT_POINTS                                                               : [],
+      strikes:  layers.has('strikes')  ? STRIKE_ARCS.filter(keep)   : [],
+      missiles: layers.has('missiles') ? MISSILE_TRACKS.filter(keep) : [],
+      targets:  layers.has('targets')  ? TARGETS.filter(keep)        : [],
+      assets:   layers.has('assets')   ? ALLIED_ASSETS.filter(keep)  : [],
+      zones:    layers.has('zones')    ? THREAT_ZONES.filter(keepZone) : [],
+      heat:     layers.has('heat')     ? HEAT_POINTS                 : [],
     };
   }, [state]);
 
-  return {
-    ...state,
-    ...filtered,
-    toggleActor,
-    toggleCategory,
-    toggleStatus,
-    toggleHeat,
-    resetFilters,
-  };
+  const isFiltered =
+    state.layers.size < ALL_LAYERS.length ||
+    state.actors.size < ALL_ACTORS.length ||
+    state.priorities.size < ALL_PRIORITIES.length ||
+    state.statuses.size < ALL_STATUSES.length;
+
+  return { ...state, ...filtered, toggleLayer, toggleActor, togglePriority, toggleStatus, resetFilters, isFiltered };
 }
