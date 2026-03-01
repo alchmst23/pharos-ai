@@ -1,51 +1,97 @@
 const { app, BrowserWindow, Menu } = require('electron');
-const path = require('path');
+const path   = require('path');
+const net    = require('net');
+const { spawn } = require('child_process');
 
+const isDev   = !app.isPackaged;
 const DEV_URL = 'http://localhost:3000';
+const PROD_PORT = 3745; // fixed port for the embedded Next.js server
 
-function createWindow() {
+let nextServerProcess = null;
+
+// ─── Wait until a TCP port accepts connections ────────────────────────────────
+function waitForPort(port, timeoutMs = 30_000) {
+  return new Promise((resolve, reject) => {
+    const deadline = Date.now() + timeoutMs;
+    function probe() {
+      const sock = net.createConnection(port, '127.0.0.1');
+      sock.once('connect', () => { sock.destroy(); resolve(); });
+      sock.once('error', () => {
+        if (Date.now() >= deadline) return reject(new Error(`Port ${port} not ready after ${timeoutMs}ms`));
+        setTimeout(probe, 250);
+      });
+    }
+    probe();
+  });
+}
+
+// ─── Spawn the standalone Next.js server (production only) ───────────────────
+async function startNextServer() {
+  // electron-builder places extraResources in process.resourcesPath
+  const serverScript = path.join(process.resourcesPath, 'standalone', 'server.js');
+
+  nextServerProcess = spawn(process.execPath, [serverScript], {
+    env: {
+      ...process.env,
+      PORT:      String(PROD_PORT),
+      NODE_ENV:  'production',
+      HOSTNAME:  '127.0.0.1',
+    },
+    stdio: 'pipe',
+  });
+
+  nextServerProcess.stdout.on('data', d => console.log('[Next]', d.toString().trim()));
+  nextServerProcess.stderr.on('data', d => console.error('[Next]', d.toString().trim()));
+  nextServerProcess.on('error', err => console.error('[Next] spawn error:', err));
+
+  await waitForPort(PROD_PORT);
+}
+
+// ─── Create the browser window ────────────────────────────────────────────────
+async function createWindow() {
   const win = new BrowserWindow({
-    width: 1440,
+    width:  1440,
     height: 900,
-    minWidth: 1024,
+    minWidth:  1024,
     minHeight: 700,
-    backgroundColor: '#1C2127',   // Blueprint dark — no white flash on load
-    titleBarStyle: 'hiddenInset', // macOS: traffic lights inset, no ugly bar
+    backgroundColor: '#1C2127',
+    titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 16, y: 14 },
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
     },
-    title: 'Pharos Intelligence — Operation Epic Fury',
-    show: false, // wait for ready-to-show to avoid white flash
+    title: 'Pharos Intelligence',
+    show: false,
   });
 
-  // Remove default app menu (File/Edit/View etc.)
   Menu.setApplicationMenu(null);
 
-  // Load the Next.js dev server
-  win.loadURL(DEV_URL);
+  if (isDev) {
+    win.loadURL(DEV_URL);
+  } else {
+    await startNextServer();
+    win.loadURL(`http://127.0.0.1:${PROD_PORT}/dashboard`);
+  }
 
-  // Show only when content is ready — no white flash
   win.once('ready-to-show', () => {
     win.show();
-    win.maximize(); // fill the screen — especially good on ultrawide
+    win.maximize();
   });
-
-  // Open DevTools on Cmd+Option+I (comment out for cleaner demo)
-  // win.webContents.openDevTools();
 }
 
-app.whenReady().then(() => {
-  createWindow();
+// ─── Lifecycle ────────────────────────────────────────────────────────────────
+app.whenReady().then(createWindow);
 
-  // macOS: re-create window when clicking dock icon
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-  });
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) createWindow();
 });
 
-// Quit on all windows closed (except macOS)
 app.on('window-all-closed', () => {
+  if (nextServerProcess) nextServerProcess.kill();
   if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('before-quit', () => {
+  if (nextServerProcess) nextServerProcess.kill();
 });

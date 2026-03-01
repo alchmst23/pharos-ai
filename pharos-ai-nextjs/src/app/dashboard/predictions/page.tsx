@@ -1,229 +1,305 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { ExternalLink, RefreshCw, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
+import { ExternalLink, RefreshCw, TrendingUp, ChevronDown, ChevronRight } from 'lucide-react';
 import type { PredictionMarket } from '@/app/api/polymarket/route';
+import type { PricePoint }       from '@/app/api/polymarket/chart/route';
+import { assignGroup, MARKET_GROUPS, UNCATEGORIZED_GROUP, type MarketGroup } from '@/data/predictionGroups';
 
 /* ─── helpers ─── */
 function fmtVol(v: number): string {
   if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(2)}M`;
-  if (v >= 1_000) return `$${(v / 1_000).toFixed(0)}K`;
+  if (v >= 1_000)     return `$${(v / 1_000).toFixed(0)}K`;
   return `$${v.toFixed(0)}`;
 }
-
 function fmtDate(iso: string): string {
   if (!iso) return '—';
-  const d = new Date(iso);
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }).toUpperCase();
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }).toUpperCase();
 }
-
-function probColor(p: number): string {
+function probColor(p: number) {
   if (p >= 0.65) return '#23A26D';
   if (p >= 0.50) return '#2D72D2';
   if (p >= 0.35) return '#EC9A3C';
   return '#E76A6E';
 }
-
-function probBg(p: number): string {
+function probBg(p: number) {
   if (p >= 0.65) return 'rgba(35,162,109,0.12)';
   if (p >= 0.50) return 'rgba(45,114,210,0.12)';
   if (p >= 0.35) return 'rgba(236,154,60,0.12)';
   return 'rgba(231,106,110,0.12)';
 }
-
-function getLeadProb(market: PredictionMarket): number {
-  const yesIdx = market.outcomes.findIndex(o => o.toUpperCase() === 'YES');
-  return yesIdx >= 0 ? (market.prices[yesIdx] ?? 0) : (market.prices[0] ?? 0);
+function getLeadProb(m: PredictionMarket): number {
+  const yesIdx = m.outcomes.findIndex(o => o.toUpperCase() === 'YES');
+  return yesIdx >= 0 ? (m.prices[yesIdx] ?? 0) : (m.prices[0] ?? 0);
 }
-
 function statusLabel(m: PredictionMarket) {
-  if (m.closed)  return { label: 'CLOSED',   color: 'var(--t4)',    bg: 'rgba(92,112,128,0.12)', border: 'rgba(92,112,128,0.25)' };
-  if (m.active)  return { label: 'LIVE',     color: '#23A26D',      bg: 'rgba(35,162,109,0.12)', border: 'rgba(35,162,109,0.3)' };
-  return           { label: 'RESOLVED', color: 'var(--blue-l)',  bg: 'var(--blue-dim)',       border: 'rgba(76,144,240,0.3)' };
+  if (m.closed)  return { label: 'CLOSED',   color: 'var(--t4)',   bg: 'rgba(92,112,128,0.12)', border: 'rgba(92,112,128,0.25)' };
+  if (m.active)  return { label: 'LIVE',     color: '#23A26D',     bg: 'rgba(35,162,109,0.12)', border: 'rgba(35,162,109,0.3)'  };
+  return           { label: 'RESOLVED', color: 'var(--blue-l)', bg: 'var(--blue-dim)',       border: 'rgba(76,144,240,0.3)'  };
 }
 
-/* ─── Row component ─── */
+/* ─── Price sparkline ─── */
+function PriceChart({ conditionId }: { conditionId: string }) {
+  const [history, setHistory] = useState<PricePoint[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]   = useState(false);
+  const W = 320, H = 96;
+  const PAD = { top: 10, right: 8, bottom: 20, left: 34 };
+
+  useEffect(() => {
+    if (!conditionId) { setLoading(false); setError(true); return; }
+    fetch(`/api/polymarket/chart?id=${encodeURIComponent(conditionId)}`)
+      .then(r => r.json())
+      .then((d: { history?: PricePoint[] }) => {
+        setHistory(d.history ?? []);
+        setLoading(false);
+      })
+      .catch(() => { setError(true); setLoading(false); });
+  }, [conditionId]);
+
+  if (loading) return (
+    <div style={{ width: W, height: H, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <span style={{ fontSize: 9, fontFamily: 'SFMono-Regular, Menlo, monospace', color: 'var(--t4)', letterSpacing: '0.08em' }}>LOADING CHART...</span>
+    </div>
+  );
+  if (error || history.length < 2) return (
+    <div style={{ width: W, height: H, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <span style={{ fontSize: 9, fontFamily: 'SFMono-Regular, Menlo, monospace', color: 'var(--t4)', letterSpacing: '0.06em' }}>NO PRICE HISTORY</span>
+    </div>
+  );
+
+  const pts = history.slice(-360); // last 360 data points
+  const minT = pts[0].t, maxT = pts[pts.length - 1].t;
+  const chartW = W - PAD.left - PAD.right;
+  const chartH = H - PAD.top - PAD.bottom;
+
+  const scaleX = (t: number) => PAD.left + ((t - minT) / (maxT - minT || 1)) * chartW;
+  const scaleY = (p: number) => PAD.top + (1 - p) * chartH;
+
+  const linePts = pts.map(p => `${scaleX(p.t).toFixed(1)},${scaleY(p.p).toFixed(1)}`).join(' ');
+  const lastP   = pts[pts.length - 1].p;
+  const color   = probColor(lastP);
+  const firstP  = pts[0].p;
+  const change  = lastP - firstP;
+
+  // area path
+  const areaPath = [
+    `M ${scaleX(pts[0].t).toFixed(1)} ${(PAD.top + chartH).toFixed(1)}`,
+    ...pts.map(p => `L ${scaleX(p.t).toFixed(1)} ${scaleY(p.p).toFixed(1)}`),
+    `L ${scaleX(pts[pts.length - 1].t).toFixed(1)} ${(PAD.top + chartH).toFixed(1)}`,
+    'Z',
+  ].join(' ');
+
+  // gridlines at 0%, 25%, 50%, 75%, 100%
+  const gridLines = [0, 0.25, 0.5, 0.75, 1];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+        <span style={{ fontSize: 9, fontFamily: 'SFMono-Regular, Menlo, monospace', color: 'var(--t4)', letterSpacing: '0.08em' }}>PRICE HISTORY</span>
+        <span style={{
+          fontSize: 9,
+          fontFamily: 'SFMono-Regular, Menlo, monospace',
+          fontWeight: 700,
+          color: change >= 0 ? '#23A26D' : '#E76A6E',
+          letterSpacing: '0.06em',
+        }}>
+          {change >= 0 ? '+' : ''}{(change * 100).toFixed(1)}%
+        </span>
+      </div>
+      <svg width={W} height={H} style={{ display: 'block', overflow: 'visible' }}>
+        <defs>
+          <linearGradient id={`fill-${conditionId.slice(-8)}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
+
+        {/* grid lines */}
+        {gridLines.map(g => (
+          <g key={g}>
+            <line
+              x1={PAD.left} y1={scaleY(g)}
+              x2={W - PAD.right} y2={scaleY(g)}
+              stroke="var(--bd)"
+              strokeWidth={0.5}
+              strokeDasharray="3,3"
+            />
+            <text
+              x={PAD.left - 4}
+              y={scaleY(g) + 3}
+              fontSize={7}
+              fill="var(--t4)"
+              textAnchor="end"
+              fontFamily="SFMono-Regular, Menlo, monospace"
+            >
+              {Math.round(g * 100)}
+            </text>
+          </g>
+        ))}
+
+        {/* area fill */}
+        <path d={areaPath} fill={`url(#fill-${conditionId.slice(-8)})`} />
+
+        {/* line */}
+        <polyline
+          points={linePts}
+          fill="none"
+          stroke={color}
+          strokeWidth={1.5}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+
+        {/* last point dot */}
+        <circle
+          cx={scaleX(pts[pts.length - 1].t)}
+          cy={scaleY(lastP)}
+          r={3}
+          fill={color}
+          stroke="var(--bg-2)"
+          strokeWidth={1.5}
+        />
+
+        {/* bottom axis: first + last date */}
+        {[pts[0], pts[pts.length - 1]].map((p, i) => {
+          const x = scaleX(p.t);
+          const d = new Date(p.t * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
+          return (
+            <text
+              key={i}
+              x={x}
+              y={H - 4}
+              fontSize={7}
+              fill="var(--t4)"
+              textAnchor={i === 0 ? 'start' : 'end'}
+              fontFamily="SFMono-Regular, Menlo, monospace"
+            >
+              {d}
+            </text>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
+/* ─── Market Row ─── */
+const COL = '36px 1fr 120px 96px 72px 80px 64px 28px';
+
 function MarketRow({ market, rank, isExpanded, onToggle }: {
   market: PredictionMarket;
   rank: number;
   isExpanded: boolean;
   onToggle: () => void;
 }) {
-  const prob = getLeadProb(market);
-  const color = probColor(prob);
-  const bg = probBg(prob);
+  const prob   = getLeadProb(market);
+  const color  = probColor(prob);
+  const bg     = probBg(prob);
   const status = statusLabel(market);
   const isBinary = market.outcomes.length === 2;
 
   return (
     <>
       <div
+        role="button"
+        tabIndex={0}
         onClick={onToggle}
+        onKeyDown={e => e.key === 'Enter' && onToggle()}
         style={{
           display: 'grid',
-          gridTemplateColumns: '36px 1fr 110px 96px 72px 80px 72px 32px',
+          gridTemplateColumns: COL,
           alignItems: 'center',
-          height: 48,
-          padding: '0 12px 0 0',
+          height: 44,
           borderBottom: '1px solid var(--bd)',
           cursor: 'pointer',
           background: isExpanded ? 'var(--bg-2)' : 'transparent',
           transition: 'background 0.1s',
         }}
-        onMouseEnter={e => { if (!isExpanded) (e.currentTarget as HTMLDivElement).style.background = 'rgba(56,62,71,0.5)'; }}
+        onMouseEnter={e => { if (!isExpanded) (e.currentTarget as HTMLDivElement).style.background = 'rgba(56,62,71,0.45)'; }}
         onMouseLeave={e => { if (!isExpanded) (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
       >
         {/* Rank */}
-        <div style={{
-          paddingLeft: 12,
-          fontSize: 10,
-          fontFamily: 'SFMono-Regular, Menlo, monospace',
-          color: 'var(--t4)',
-          fontWeight: 700,
-        }}>
+        <div style={{ paddingLeft: 14, fontSize: 10, fontFamily: 'SFMono-Regular, Menlo, monospace', color: 'var(--t4)', fontWeight: 700 }}>
           {rank}
         </div>
 
         {/* Title */}
-        <div style={{
-          paddingRight: 24,
-          overflow: 'hidden',
-        }}>
-          <div style={{
-            fontSize: 12,
-            fontWeight: 600,
-            color: 'var(--t1)',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            lineHeight: 1.3,
-          }}>
+        <div style={{ paddingRight: 20, overflow: 'hidden' }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--t1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {market.title}
           </div>
         </div>
 
         {/* Probability */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: 12 }}>
-          <div style={{
-            flex: 1,
-            height: 4,
-            background: 'var(--bg-3)',
-            borderRadius: 1,
-            overflow: 'hidden',
-          }}>
-            <div style={{
-              width: `${prob * 100}%`,
-              height: '100%',
-              background: color,
-              borderRadius: 1,
-            }} />
+          <div style={{ flex: 1, height: 4, background: 'var(--bg-3)', borderRadius: 1, overflow: 'hidden' }}>
+            <div style={{ width: `${prob * 100}%`, height: '100%', background: color, borderRadius: 1 }} />
           </div>
           <div style={{
-            fontSize: 13,
-            fontFamily: 'SFMono-Regular, Menlo, monospace',
-            fontWeight: 700,
-            color,
-            background: bg,
-            padding: '1px 5px',
-            borderRadius: 2,
-            minWidth: 42,
-            textAlign: 'right',
+            fontSize: 12, fontFamily: 'SFMono-Regular, Menlo, monospace', fontWeight: 700,
+            color, background: bg, padding: '1px 5px', borderRadius: 2, minWidth: 40, textAlign: 'right',
           }}>
             {Math.round(prob * 100)}%
           </div>
         </div>
 
         {/* Volume */}
-        <div style={{
-          fontSize: 11,
-          fontFamily: 'SFMono-Regular, Menlo, monospace',
-          color: 'var(--t2)',
-          textAlign: 'right',
-          paddingRight: 12,
-        }}>
+        <div style={{ fontSize: 11, fontFamily: 'SFMono-Regular, Menlo, monospace', color: 'var(--t2)', textAlign: 'right', paddingRight: 12 }}>
           {fmtVol(market.volume)}
         </div>
 
         {/* 24h vol */}
-        <div style={{
-          fontSize: 11,
-          fontFamily: 'SFMono-Regular, Menlo, monospace',
-          color: market.volume24hr > 0 ? '#23A26D' : 'var(--t4)',
-          textAlign: 'right',
-          paddingRight: 12,
-        }}>
+        <div style={{ fontSize: 11, fontFamily: 'SFMono-Regular, Menlo, monospace', color: market.volume24hr > 0 ? '#23A26D' : 'var(--t4)', textAlign: 'right', paddingRight: 12 }}>
           {market.volume24hr > 0 ? fmtVol(market.volume24hr) : '—'}
         </div>
 
         {/* End date */}
-        <div style={{
-          fontSize: 10,
-          fontFamily: 'SFMono-Regular, Menlo, monospace',
-          color: 'var(--t3)',
-          textAlign: 'right',
-          paddingRight: 12,
-        }}>
+        <div style={{ fontSize: 10, fontFamily: 'SFMono-Regular, Menlo, monospace', color: 'var(--t3)', textAlign: 'right', paddingRight: 12 }}>
           {fmtDate(market.endDate)}
         </div>
 
         {/* Status */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', paddingRight: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', paddingRight: 8 }}>
           <span style={{
-            padding: '2px 5px',
-            background: status.bg,
-            border: `1px solid ${status.border}`,
-            borderRadius: 2,
-            fontSize: 8,
-            fontFamily: 'SFMono-Regular, Menlo, monospace',
-            fontWeight: 700,
-            color: status.color,
-            letterSpacing: '0.06em',
+            padding: '2px 5px', background: status.bg, border: `1px solid ${status.border}`,
+            borderRadius: 2, fontSize: 8, fontFamily: 'SFMono-Regular, Menlo, monospace',
+            fontWeight: 700, color: status.color, letterSpacing: '0.06em',
           }}>
             {status.label}
           </span>
         </div>
 
-        {/* Expand chevron */}
-        <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--t4)' }}>
-          {isExpanded
-            ? <ChevronUp size={12} />
-            : <ChevronDown size={12} />}
+        {/* Chevron */}
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'var(--t4)' }}>
+          <ChevronDown size={12} style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
         </div>
       </div>
 
-      {/* Expanded detail row */}
+      {/* Expanded panel */}
       {isExpanded && (
         <div style={{
           background: 'var(--bg-2)',
-          borderBottom: '1px solid var(--bd-s)',
-          padding: '10px 48px 14px',
+          borderBottom: '1px solid var(--bd)',
+          padding: '14px 50px 18px 50px',
           display: 'grid',
-          gridTemplateColumns: '1fr auto',
-          gap: 24,
+          gridTemplateColumns: '320px 1fr auto',
+          gap: 32,
+          alignItems: 'start',
         }}>
-          {/* Left: description + outcomes */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {/* Price chart */}
+          <PriceChart conditionId={market.conditionId} />
+
+          {/* Description + outcome bars */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {market.description && (
-              <p style={{
-                fontSize: 11,
-                color: 'var(--t3)',
-                lineHeight: 1.6,
-                maxWidth: 720,
-              }}>
+              <p style={{ fontSize: 11, color: 'var(--t3)', lineHeight: 1.65, maxWidth: 580 }}>
                 {market.description}
               </p>
             )}
-
-            {/* Outcome breakdown */}
             {!isBinary && market.outcomes.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 440 }}>
-                <div style={{
-                  fontSize: 8,
-                  fontFamily: 'SFMono-Regular, Menlo, monospace',
-                  color: 'var(--t4)',
-                  letterSpacing: '0.08em',
-                  marginBottom: 2,
-                }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 420 }}>
+                <div style={{ fontSize: 8, fontFamily: 'SFMono-Regular, Menlo, monospace', color: 'var(--t4)', letterSpacing: '0.08em', marginBottom: 2 }}>
                   OUTCOMES
                 </div>
                 {market.outcomes.slice(0, 6).map((outcome, i) => {
@@ -231,37 +307,13 @@ function MarketRow({ market, rank, isExpanded, onToggle }: {
                   const c = probColor(p);
                   return (
                     <div key={outcome} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{
-                        fontSize: 10,
-                        fontFamily: 'SFMono-Regular, Menlo, monospace',
-                        color: 'var(--t2)',
-                        width: 160,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        flexShrink: 0,
-                      }}>
+                      <span style={{ fontSize: 10, fontFamily: 'SFMono-Regular, Menlo, monospace', color: 'var(--t2)', width: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 0 }}>
                         {outcome}
                       </span>
-                      <div style={{
-                        flex: 1,
-                        height: 3,
-                        background: 'var(--bg-3)',
-                        borderRadius: 1,
-                        overflow: 'hidden',
-                        maxWidth: 180,
-                      }}>
+                      <div style={{ flex: 1, height: 3, background: 'var(--bg-3)', borderRadius: 1, overflow: 'hidden', maxWidth: 180 }}>
                         <div style={{ width: `${p * 100}%`, height: '100%', background: c }} />
                       </div>
-                      <span style={{
-                        fontSize: 10,
-                        fontFamily: 'SFMono-Regular, Menlo, monospace',
-                        fontWeight: 700,
-                        color: c,
-                        width: 32,
-                        textAlign: 'right',
-                        flexShrink: 0,
-                      }}>
+                      <span style={{ fontSize: 10, fontFamily: 'SFMono-Regular, Menlo, monospace', fontWeight: 700, color: c, width: 32, textAlign: 'right', flexShrink: 0 }}>
                         {Math.round(p * 100)}%
                       </span>
                     </div>
@@ -272,39 +324,34 @@ function MarketRow({ market, rank, isExpanded, onToggle }: {
           </div>
 
           {/* Right: stats + link */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end', minWidth: 140 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, textAlign: 'right' }}>
-              <div style={{ fontSize: 8, fontFamily: 'SFMono-Regular, Menlo, monospace', color: 'var(--t4)', letterSpacing: '0.06em' }}>LIQUIDITY</div>
-              <div style={{ fontSize: 12, fontFamily: 'SFMono-Regular, Menlo, monospace', fontWeight: 700, color: 'var(--t1)' }}>{fmtVol(market.liquidity)}</div>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, textAlign: 'right' }}>
-              <div style={{ fontSize: 8, fontFamily: 'SFMono-Regular, Menlo, monospace', color: 'var(--t4)', letterSpacing: '0.06em' }}>7D VOLUME</div>
-              <div style={{ fontSize: 12, fontFamily: 'SFMono-Regular, Menlo, monospace', fontWeight: 700, color: 'var(--t2)' }}>{fmtVol(market.volume1wk)}</div>
-            </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end', minWidth: 130 }}>
+            {[
+              { label: 'LIQUIDITY', val: fmtVol(market.liquidity) },
+              { label: '7D VOLUME', val: fmtVol(market.volume1wk) },
+            ].map(({ label, val }) => (
+              <div key={label} style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 8, fontFamily: 'SFMono-Regular, Menlo, monospace', color: 'var(--t4)', letterSpacing: '0.06em', marginBottom: 2 }}>{label}</div>
+                <div style={{ fontSize: 12, fontFamily: 'SFMono-Regular, Menlo, monospace', fontWeight: 700, color: 'var(--t1)' }}>{val}</div>
+              </div>
+            ))}
             <a
               href={market.polyUrl}
               target="_blank"
               rel="noopener noreferrer"
               onClick={e => e.stopPropagation()}
               style={{
-                marginTop: 8,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
+                marginTop: 6,
+                display: 'flex', alignItems: 'center', gap: 4,
                 textDecoration: 'none',
-                color: 'var(--blue-l)',
-                fontSize: 9,
-                fontFamily: 'SFMono-Regular, Menlo, monospace',
-                fontWeight: 700,
-                letterSpacing: '0.08em',
-                padding: '4px 8px',
-                border: '1px solid rgba(76,144,240,0.3)',
-                borderRadius: 2,
+                color: 'var(--blue-l)', fontSize: 9,
+                fontFamily: 'SFMono-Regular, Menlo, monospace', fontWeight: 700,
+                letterSpacing: '0.08em', padding: '4px 8px',
+                border: '1px solid rgba(76,144,240,0.3)', borderRadius: 2,
                 background: 'rgba(45,114,210,0.08)',
               }}
             >
               <ExternalLink size={10} />
-              OPEN ON POLYMARKET
+              POLYMARKET ↗
             </a>
           </div>
         </div>
@@ -313,23 +360,99 @@ function MarketRow({ market, rank, isExpanded, onToggle }: {
   );
 }
 
+/* ─── Group section ─── */
+function GroupSection({
+  group, markets, expandedId, onToggle, globalRankOffset,
+  sortBy,
+}: {
+  group: MarketGroup;
+  markets: PredictionMarket[];
+  expandedId: string | null;
+  onToggle: (id: string) => void;
+  globalRankOffset: number;
+  sortBy: 'volume' | 'volume24hr' | 'probability';
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+  if (markets.length === 0) return null;
+
+  const groupVol = markets.reduce((s, m) => s + m.volume, 0);
+  const sorted = [...markets].sort((a, b) => {
+    if (sortBy === 'volume')      return b.volume - a.volume;
+    if (sortBy === 'volume24hr')  return b.volume24hr - a.volume24hr;
+    return getLeadProb(b) - getLeadProb(a);
+  });
+
+  return (
+    <div>
+      {/* Group header */}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => setCollapsed(v => !v)}
+        onKeyDown={e => e.key === 'Enter' && setCollapsed(v => !v)}
+        style={{
+          height: 30,
+          display: 'flex',
+          alignItems: 'center',
+          padding: '0 14px',
+          background: group.bg,
+          borderBottom: `1px solid ${group.border}`,
+          borderLeft: `3px solid ${group.color}`,
+          cursor: 'pointer',
+          gap: 8,
+        }}
+      >
+        {collapsed
+          ? <ChevronRight size={11} style={{ color: group.color, flexShrink: 0 }} />
+          : <ChevronDown  size={11} style={{ color: group.color, flexShrink: 0 }} />}
+        <span style={{
+          fontSize: 9, fontFamily: 'SFMono-Regular, Menlo, monospace', fontWeight: 700,
+          color: group.color, letterSpacing: '0.10em',
+        }}>
+          {group.label}
+        </span>
+        <span style={{ fontSize: 9, fontFamily: 'SFMono-Regular, Menlo, monospace', color: 'var(--t4)', letterSpacing: '0.04em' }}>
+          {group.description}
+        </span>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: 9, fontFamily: 'SFMono-Regular, Menlo, monospace', color: 'var(--t4)' }}>
+            {markets.length} {markets.length === 1 ? 'MARKET' : 'MARKETS'}
+          </span>
+          <span style={{ fontSize: 9, fontFamily: 'SFMono-Regular, Menlo, monospace', color: 'var(--t3)', fontWeight: 700 }}>
+            {fmtVol(groupVol)} VOL
+          </span>
+        </div>
+      </div>
+
+      {/* Markets */}
+      {!collapsed && sorted.map((market, i) => (
+        <MarketRow
+          key={market.id}
+          market={market}
+          rank={globalRankOffset + i + 1}
+          isExpanded={expandedId === market.id}
+          onToggle={() => onToggle(market.id)}
+        />
+      ))}
+    </div>
+  );
+}
+
 /* ─── Page ─── */
 export default function PredictionsPage() {
   const [markets, setMarkets] = useState<PredictionMarket[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<'volume' | 'volume24hr' | 'probability'>('volume');
-  const [showActiveOnly, setShowActiveOnly] = useState(false);
-  const [fetchedAt, setFetchedAt] = useState<string>('');
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [error, setError]     = useState<string | null>(null);
+  const [sortBy, setSortBy]   = useState<'volume' | 'volume24hr' | 'probability'>('volume');
+  const [showActiveOnly, setShowActiveOnly]  = useState(false);
+  const [fetchedAt, setFetchedAt]            = useState('');
+  const [isRefreshing, setIsRefreshing]      = useState(false);
+  const [expandedId, setExpandedId]          = useState<string | null>(null);
 
   const fetchMarkets = async () => {
-    setLoading(true);
-    setIsRefreshing(true);
-    setError(null);
+    setLoading(true); setIsRefreshing(true); setError(null);
     try {
-      const res = await fetch('/api/polymarket');
+      const res  = await fetch('/api/polymarket');
       const data = await res.json() as { markets: PredictionMarket[]; fetchedAt: string; error?: string };
       if (data.error) throw new Error(data.error);
       setMarkets(data.markets);
@@ -337,8 +460,7 @@ export default function PredictionsPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setLoading(false);
-      setIsRefreshing(false);
+      setLoading(false); setIsRefreshing(false);
     }
   };
 
@@ -347,28 +469,49 @@ export default function PredictionsPage() {
   const filtered = useMemo(() => {
     let m = markets;
     if (showActiveOnly) m = m.filter(x => x.active && !x.closed);
-    if (sortBy === 'volume')      m = [...m].sort((a, b) => b.volume - a.volume);
-    if (sortBy === 'volume24hr')  m = [...m].sort((a, b) => b.volume24hr - a.volume24hr);
-    if (sortBy === 'probability') m = [...m].sort((a, b) => getLeadProb(b) - getLeadProb(a));
     return m;
-  }, [markets, sortBy, showActiveOnly]);
+  }, [markets, showActiveOnly]);
 
-  const totalVolume   = markets.reduce((s, m) => s + m.volume, 0);
-  const totalVol24h   = markets.reduce((s, m) => s + m.volume24hr, 0);
-  const activeCount   = markets.filter(m => m.active && !m.closed).length;
+  // Group markets
+  const grouped = useMemo(() => {
+    const map = new Map<string, PredictionMarket[]>();
+    const allGroups = [...MARKET_GROUPS, UNCATEGORIZED_GROUP];
+    for (const g of allGroups) map.set(g.id, []);
+    for (const m of filtered) {
+      const g = assignGroup(m.title);
+      map.get(g.id)!.push(m);
+    }
+    return map;
+  }, [filtered]);
 
+  const totalVolume = markets.reduce((s, m) => s + m.volume, 0);
+  const totalVol24h = markets.reduce((s, m) => s + m.volume24hr, 0);
+  const activeCount = markets.filter(m => m.active && !m.closed).length;
   const lastUpdated = fetchedAt
     ? new Date(fetchedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
     : '—';
 
-  const SORT_COLS: { key: 'volume' | 'volume24hr' | 'probability'; label: string }[] = [
+  const SORT_COLS: { key: typeof sortBy; label: string }[] = [
     { key: 'volume',      label: 'TOTAL VOL' },
     { key: 'volume24hr',  label: '24H VOL'   },
     { key: 'probability', label: 'PROB'       },
   ];
 
+  // For global rank numbers across groups
+  const rankOffsets = useMemo(() => {
+    const offsets: Record<string, number> = {};
+    let total = 0;
+    for (const g of [...MARKET_GROUPS, UNCATEGORIZED_GROUP]) {
+      offsets[g.id] = total;
+      total += (grouped.get(g.id)?.length ?? 0);
+    }
+    return offsets;
+  }, [grouped]);
+
   return (
     <div style={{
+      flex: 1,
+      minWidth: 0,
       height: '100%',
       display: 'flex',
       flexDirection: 'column',
@@ -384,36 +527,20 @@ export default function PredictionsPage() {
         display: 'flex',
         alignItems: 'center',
         padding: '0 16px',
-        gap: 20,
+        gap: 16,
         flexShrink: 0,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <TrendingUp size={14} strokeWidth={2.5} style={{ color: 'var(--blue-l)' }} />
-          <span style={{
-            fontFamily: 'SFMono-Regular, Menlo, monospace',
-            fontSize: 11,
-            fontWeight: 700,
-            color: 'var(--t1)',
-            letterSpacing: '0.10em',
-          }}>
+          <TrendingUp size={14} strokeWidth={2.5} style={{ color: 'var(--blue-l)', flexShrink: 0 }} />
+          <span style={{ fontFamily: 'SFMono-Regular, Menlo, monospace', fontSize: 11, fontWeight: 700, color: 'var(--t1)', letterSpacing: '0.10em' }}>
             PREDICTION MARKETS
           </span>
-          <span style={{
-            fontFamily: 'SFMono-Regular, Menlo, monospace',
-            fontSize: 9,
-            color: 'var(--t4)',
-            letterSpacing: '0.06em',
-          }}>
+          <span style={{ fontFamily: 'SFMono-Regular, Menlo, monospace', fontSize: 9, color: 'var(--t4)', letterSpacing: '0.06em' }}>
             VIA POLYMARKET
           </span>
         </div>
 
-        {/* Stats */}
-        <div style={{
-          height: 20,
-          width: 1,
-          background: 'var(--bd)',
-        }} />
+        <div style={{ width: 1, height: 20, background: 'var(--bd)', flexShrink: 0 }} />
 
         <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
           <div>
@@ -431,176 +558,96 @@ export default function PredictionsPage() {
           </div>
         </div>
 
-        {/* Right controls */}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 9, fontFamily: 'SFMono-Regular, Menlo, monospace', color: 'var(--t4)' }}>
-            {lastUpdated}
-          </span>
+          <span style={{ fontSize: 9, fontFamily: 'SFMono-Regular, Menlo, monospace', color: 'var(--t4)' }}>{lastUpdated}</span>
           <button
-            onClick={fetchMarkets}
-            disabled={loading}
-            style={{
-              background: 'none',
-              border: '1px solid var(--bd)',
-              borderRadius: 2,
-              padding: '4px 6px',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              color: 'var(--t3)',
-              display: 'flex',
-              alignItems: 'center',
-              opacity: loading ? 0.5 : 1,
-            }}
+            onClick={fetchMarkets} disabled={loading}
+            style={{ background: 'none', border: '1px solid var(--bd)', borderRadius: 2, padding: '4px 6px', cursor: loading ? 'not-allowed' : 'pointer', color: 'var(--t3)', display: 'flex', alignItems: 'center', opacity: loading ? 0.5 : 1 }}
           >
             <RefreshCw size={12} style={{ animation: isRefreshing ? 'spin 1s linear infinite' : 'none' }} />
           </button>
         </div>
       </div>
 
-      {/* ── Column header / toolbar ── */}
+      {/* ── Column header ── */}
       <div style={{
         background: 'var(--bg-app)',
         borderBottom: '1px solid var(--bd)',
         flexShrink: 0,
         display: 'grid',
-        gridTemplateColumns: '36px 1fr 110px 96px 72px 80px 72px 32px',
+        gridTemplateColumns: COL,
         alignItems: 'center',
-        height: 32,
-        padding: '0 0',
+        height: 30,
       }}>
-        <div /> {/* rank */}
+        <div />
+        <div style={{ fontSize: 8, fontFamily: 'SFMono-Regular, Menlo, monospace', color: 'var(--t4)', letterSpacing: '0.08em', paddingLeft: 2 }}>MARKET</div>
 
-        {/* title + sort area */}
-        <div style={{
-          paddingLeft: 0,
-          paddingRight: 24,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-        }}>
-          <span style={{ fontSize: 8, fontFamily: 'SFMono-Regular, Menlo, monospace', color: 'var(--t4)', letterSpacing: '0.08em' }}>MARKET</span>
-        </div>
-
-        {/* Sort buttons in column headers */}
         {SORT_COLS.map(col => (
-          <button
-            key={col.key}
-            onClick={() => setSortBy(col.key)}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: '0 0 0 0',
-              paddingRight: col.key === 'probability' ? 24 : 12,
-              display: 'flex',
-              justifyContent: col.key === 'probability' ? 'flex-start' : 'flex-end',
-              alignItems: 'center',
-              gap: 3,
-            }}
-          >
+          <button key={col.key} onClick={() => setSortBy(col.key)} style={{
+            background: 'none', border: 'none', cursor: 'pointer', paddingRight: col.key === 'probability' ? 0 : 12,
+            display: 'flex', justifyContent: col.key === 'probability' ? 'flex-start' : 'flex-end', alignItems: 'center',
+          }}>
             <span style={{
-              fontSize: 8,
-              fontFamily: 'SFMono-Regular, Menlo, monospace',
+              fontSize: 8, fontFamily: 'SFMono-Regular, Menlo, monospace',
               fontWeight: sortBy === col.key ? 700 : 400,
               color: sortBy === col.key ? 'var(--blue-l)' : 'var(--t4)',
               letterSpacing: '0.08em',
             }}>
-              {col.label}
-              {sortBy === col.key ? ' ▼' : ''}
+              {col.label}{sortBy === col.key ? ' ▼' : ''}
             </span>
           </button>
         ))}
 
-        <div style={{
-          fontSize: 8,
-          fontFamily: 'SFMono-Regular, Menlo, monospace',
-          color: 'var(--t4)',
-          letterSpacing: '0.08em',
-          textAlign: 'right',
-          paddingRight: 12,
-        }}>
-          ENDS
-        </div>
+        <div style={{ fontSize: 8, fontFamily: 'SFMono-Regular, Menlo, monospace', color: 'var(--t4)', letterSpacing: '0.08em', textAlign: 'right', paddingRight: 12 }}>ENDS</div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', paddingRight: 10, alignItems: 'center', gap: 6 }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', paddingRight: 8 }}>
           <button
             onClick={() => setShowActiveOnly(v => !v)}
             style={{
               padding: '1px 5px',
               background: showActiveOnly ? 'rgba(35,162,109,0.15)' : 'transparent',
               border: `1px solid ${showActiveOnly ? 'rgba(35,162,109,0.4)' : 'var(--bd)'}`,
-              borderRadius: 2,
-              cursor: 'pointer',
-              fontSize: 7,
-              fontFamily: 'SFMono-Regular, Menlo, monospace',
-              fontWeight: 700,
+              borderRadius: 2, cursor: 'pointer', fontSize: 7,
+              fontFamily: 'SFMono-Regular, Menlo, monospace', fontWeight: 700,
               color: showActiveOnly ? '#23A26D' : 'var(--t4)',
-              letterSpacing: '0.06em',
-              whiteSpace: 'nowrap',
+              letterSpacing: '0.06em', whiteSpace: 'nowrap',
             }}
           >
             LIVE ONLY
           </button>
         </div>
-
-        <div /> {/* chevron col */}
+        <div />
       </div>
 
-      {/* ── Market list ── */}
+      {/* ── Content ── */}
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {loading ? (
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '100%',
-            gap: 10,
-          }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 10 }}>
             <RefreshCw size={20} style={{ animation: 'spin 1s linear infinite', color: 'var(--blue)' }} />
-            <span style={{
-              fontSize: 10,
-              fontFamily: 'SFMono-Regular, Menlo, monospace',
-              letterSpacing: '0.1em',
-              color: 'var(--t4)',
-            }}>
-              FETCHING MARKET DATA...
-            </span>
+            <span style={{ fontSize: 10, fontFamily: 'SFMono-Regular, Menlo, monospace', letterSpacing: '0.1em', color: 'var(--t4)' }}>FETCHING MARKET DATA...</span>
           </div>
         ) : error ? (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: 200,
-            color: 'var(--danger)',
-            fontFamily: 'SFMono-Regular, Menlo, monospace',
-            fontSize: 11,
-          }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: 'var(--danger)', fontFamily: 'SFMono-Regular, Menlo, monospace', fontSize: 11 }}>
             ERROR: {error}
           </div>
         ) : filtered.length === 0 ? (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: 200,
-            color: 'var(--t4)',
-            fontFamily: 'SFMono-Regular, Menlo, monospace',
-            fontSize: 11,
-            letterSpacing: '0.1em',
-          }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: 'var(--t4)', fontFamily: 'SFMono-Regular, Menlo, monospace', fontSize: 11, letterSpacing: '0.1em' }}>
             NO MARKETS FOUND
           </div>
         ) : (
-          filtered.map((market, i) => (
-            <MarketRow
-              key={market.id}
-              market={market}
-              rank={i + 1}
-              isExpanded={expandedId === market.id}
-              onToggle={() => setExpandedId(expandedId === market.id ? null : market.id)}
-            />
-          ))
+          <>
+            {[...MARKET_GROUPS, UNCATEGORIZED_GROUP].map(group => (
+              <GroupSection
+                key={group.id}
+                group={group}
+                markets={grouped.get(group.id) ?? []}
+                expandedId={expandedId}
+                onToggle={id => setExpandedId(expandedId === id ? null : id)}
+                globalRankOffset={rankOffsets[group.id] ?? 0}
+                sortBy={sortBy}
+              />
+            ))}
+          </>
         )}
       </div>
     </div>
