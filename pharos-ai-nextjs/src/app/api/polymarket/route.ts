@@ -32,6 +32,7 @@ interface PolyEvent {
     closed: boolean;
     endDate: string;
     conditionId: string;
+    clobTokenIds?: string;   // JSON-encoded string array — [YES_token, NO_token]
   }>;
 }
 
@@ -39,7 +40,7 @@ export interface PredictionMarket {
   id: string;
   title: string;
   description: string;
-  category: string;        // empty — assigned manually
+  category: string;        // empty — assigned manually by LLM pipeline
   outcomes: string[];
   prices: number[];        // implied probabilities 0–1
   volume: number;
@@ -52,6 +53,7 @@ export interface PredictionMarket {
   image: string;
   polyUrl: string;
   conditionId: string;
+  yesTokenId: string;      // CLOB token ID for YES outcome — used for price history chart
 }
 
 export async function GET() {
@@ -80,32 +82,38 @@ export async function GET() {
 
     events.sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0));
 
-    const markets: PredictionMarket[] = events.slice(0, 60).map(event => {
-      const market = event.markets[0];
-      let outcomes: string[] = [];
-      let prices: number[] = [];
-      try { outcomes = JSON.parse(market.outcomes ?? '[]'); } catch { /* ignore */ }
-      try { prices = (JSON.parse(market.outcomePrices ?? '[]') as string[]).map(Number); } catch { /* ignore */ }
+    const markets: PredictionMarket[] = events
+      .filter(event => !event.closed)   // drop fully settled markets
+      .slice(0, 60)
+      .map(event => {
+        const market = event.markets[0];
+        let outcomes: string[] = [];
+        let prices: number[] = [];
+        let tokenIds: string[] = [];
+        try { outcomes = JSON.parse(market.outcomes        ?? '[]'); } catch { /* ignore */ }
+        try { prices   = (JSON.parse(market.outcomePrices  ?? '[]') as string[]).map(Number); } catch { /* ignore */ }
+        try { tokenIds = JSON.parse(market.clobTokenIds    ?? '[]'); } catch { /* ignore */ }
 
-      return {
-        id: event.id,
-        title: event.title,
-        description: event.description?.slice(0, 300) ?? '',
-        category: '',
-        outcomes,
-        prices,
-        volume: event.volume ?? 0,
-        volume24hr: event.volume24hr ?? 0,
-        volume1wk: event.volume1wk ?? 0,
-        liquidity: event.liquidity ?? 0,
-        active: event.active ?? false,
-        closed: event.closed ?? false,
-        endDate: event.endDate ?? '',
-        image: event.image ?? '',
-        polyUrl: `https://polymarket.com/event/${event.markets[0]?.slug ?? event.id}`,
-        conditionId: market.conditionId ?? '',
-      };
-    });
+        return {
+          id: event.id,
+          title: event.title,
+          description: event.description?.slice(0, 300) ?? '',
+          category: '',
+          outcomes,
+          prices,
+          volume: event.volume ?? 0,
+          volume24hr: event.volume24hr ?? 0,
+          volume1wk: event.volume1wk ?? 0,
+          liquidity: event.liquidity ?? 0,
+          active: event.active ?? false,
+          closed: event.closed ?? false,
+          endDate: event.endDate ?? '',
+          image: event.image ?? '',
+          polyUrl: `https://polymarket.com/event/${market.slug ?? event.id}`,
+          conditionId: market.conditionId ?? '',
+          yesTokenId: tokenIds[0] ?? '',
+        };
+      });
 
     return NextResponse.json({ markets, fetchedAt: new Date().toISOString() });
   } catch (err) {

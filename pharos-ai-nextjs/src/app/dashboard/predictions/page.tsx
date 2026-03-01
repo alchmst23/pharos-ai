@@ -39,7 +39,7 @@ function statusLabel(m: PredictionMarket) {
 }
 
 /* ─── Price sparkline ─── */
-function PriceChart({ conditionId }: { conditionId: string }) {
+function PriceChart({ yesTokenId }: { yesTokenId: string }) {
   const [history, setHistory] = useState<PricePoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]   = useState(false);
@@ -47,15 +47,15 @@ function PriceChart({ conditionId }: { conditionId: string }) {
   const PAD = { top: 10, right: 8, bottom: 20, left: 34 };
 
   useEffect(() => {
-    if (!conditionId) { setLoading(false); setError(true); return; }
-    fetch(`/api/polymarket/chart?id=${encodeURIComponent(conditionId)}`)
+    if (!yesTokenId) { setLoading(false); setError(true); return; }
+    fetch(`/api/polymarket/chart?id=${encodeURIComponent(yesTokenId)}`)
       .then(r => r.json())
       .then((d: { history?: PricePoint[] }) => {
         setHistory(d.history ?? []);
         setLoading(false);
       })
       .catch(() => { setError(true); setLoading(false); });
-  }, [conditionId]);
+  }, [yesTokenId]);
 
   if (loading) return (
     <div style={{ width: W, height: H, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -109,7 +109,7 @@ function PriceChart({ conditionId }: { conditionId: string }) {
       </div>
       <svg width={W} height={H} style={{ display: 'block', overflow: 'visible' }}>
         <defs>
-          <linearGradient id={`fill-${conditionId.slice(-8)}`} x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id={`fill-${yesTokenId.slice(-8)}`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={color} stopOpacity="0.25" />
             <stop offset="100%" stopColor={color} stopOpacity="0.02" />
           </linearGradient>
@@ -139,7 +139,7 @@ function PriceChart({ conditionId }: { conditionId: string }) {
         ))}
 
         {/* area fill */}
-        <path d={areaPath} fill={`url(#fill-${conditionId.slice(-8)})`} />
+        <path d={areaPath} fill={`url(#fill-${yesTokenId.slice(-8)})`} />
 
         {/* line */}
         <polyline
@@ -288,7 +288,7 @@ function MarketRow({ market, rank, isExpanded, onToggle }: {
           alignItems: 'start',
         }}>
           {/* Price chart */}
-          <PriceChart conditionId={market.conditionId} />
+          <PriceChart yesTokenId={market.yesTokenId} />
 
           {/* Description + outcome bars */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -444,7 +444,7 @@ export default function PredictionsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
   const [sortBy, setSortBy]   = useState<'volume' | 'volume24hr' | 'probability'>('volume');
-  const [showActiveOnly, setShowActiveOnly]  = useState(false);
+  const [showActiveOnly, setShowActiveOnly]  = useState(true);
   const [fetchedAt, setFetchedAt]            = useState('');
   const [isRefreshing, setIsRefreshing]      = useState(false);
   const [expandedId, setExpandedId]          = useState<string | null>(null);
