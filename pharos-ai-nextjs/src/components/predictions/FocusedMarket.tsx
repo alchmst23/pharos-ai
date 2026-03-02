@@ -139,10 +139,9 @@ export function FocusedMarket({ market, group, onClose }: FocusedMarketProps) {
               >
                 {(prob * 100).toFixed(1)}%
               </div>
-              <div className="mono text-[10px] text-[var(--t4)] mt-0.5">YES probability</div>
-              {/* Probability bar */}
-              <div className="h-[3px] w-[120px] rounded-full bg-white/6 overflow-hidden mt-2 ml-auto">
-                <div className="h-full rounded-full" style={{ width: `${prob * 100}%`, backgroundColor: pColor }} />
+              <div className="flex items-center justify-end gap-2 mt-1">
+                <span className="mono text-[10px] font-bold" style={{ color: pColor }}>YES</span>
+                <span className="mono text-[10px] text-[var(--t4)]">/ {((1 - prob) * 100).toFixed(1)}% NO</span>
               </div>
             </div>
             <button
@@ -264,15 +263,10 @@ export function FocusedMarket({ market, group, onClose }: FocusedMarketProps) {
                         <p className="text-[9px] text-[var(--t4)] mt-0.5 line-clamp-1">{sub.question}</p>
                       </div>
 
-                      {/* Probability mini bar */}
-                      <div className="flex items-center gap-2 shrink-0 w-[140px]">
-                        <div className="flex-1 h-[3px] rounded-full bg-white/6 overflow-hidden">
-                          <div className="h-full rounded-full" style={{ width: `${subProb * 100}%`, backgroundColor: subColor }} />
-                        </div>
-                        <span className="mono text-[11px] font-bold w-[40px] text-right" style={{ color: subColor }}>
-                          {(subProb * 100).toFixed(0)}%
-                        </span>
-                      </div>
+                      {/* Probability */}
+                      <span className="mono text-[13px] font-bold w-[52px] text-right shrink-0" style={{ color: subColor }}>
+                        {(subProb * 100).toFixed(1)}%
+                      </span>
 
                       {/* Vol */}
                       <span className="mono text-[10px] text-[var(--t3)] w-[60px] text-right shrink-0">

@@ -77,18 +77,13 @@ export function MarketCard({ market, group, rank, onFocus }: MarketCardProps) {
       </div>
 
       {/* Probability */}
-      <div className="px-3 pt-3 pb-1">
-        <div className="flex items-end justify-between mb-1.5">
-          <span className="mono text-[26px] font-bold leading-none" style={{ color: pColor }}>
-            {(prob * 100).toFixed(1)}%
-          </span>
-          <div className="text-right">
-            <div className="mono text-[9px] text-[var(--t4)]">YES</div>
-            <div className="mono text-[9px] text-[var(--t4)]">{((1 - prob) * 100).toFixed(1)}% NO</div>
-          </div>
-        </div>
-        <div className="h-[3px] w-full rounded-full bg-white/6 overflow-hidden">
-          <div className="h-full rounded-full" style={{ width: `${prob * 100}%`, backgroundColor: pColor }} />
+      <div className="px-3 pt-3 pb-2 flex items-center justify-between">
+        <span className="mono text-[28px] font-bold leading-none" style={{ color: pColor }}>
+          {(prob * 100).toFixed(1)}%
+        </span>
+        <div className="text-right">
+          <div className="mono text-[10px] font-bold" style={{ color: pColor }}>YES</div>
+          <div className="mono text-[10px] text-[var(--t4)]">{((1 - prob) * 100).toFixed(1)}% NO</div>
         </div>
       </div>
 
