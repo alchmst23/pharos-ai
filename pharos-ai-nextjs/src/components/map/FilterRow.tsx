@@ -4,15 +4,11 @@ import { Button } from '@/components/ui/button';
 
 import type { FacetOption } from '@/lib/map-filter-engine';
 
-// ─── Types ──────────────────────────────────────────────────────────────────────
-
 type Props = {
   option:   FacetOption;
   isOn:     boolean;
   onToggle: () => void;
 };
-
-// ─── Component ──────────────────────────────────────────────────────────────────
 
 export default function FilterRow({ option, isOn, onToggle }: Props) {
   const dotColor = option.color ?? 'var(--t4)';
@@ -21,14 +17,14 @@ export default function FilterRow({ option, isOn, onToggle }: Props) {
     <Button
       variant="ghost"
       onClick={onToggle}
-      className="w-full justify-start gap-2 rounded-none px-2 py-0 h-6 text-xs hover:bg-[var(--bg-3)]"
+      className="w-full justify-start rounded-none px-2.5 py-0 h-5 hover:bg-[var(--bg-3)]"
     >
-      {/* Checkbox */}
+      {/* Checkbox dot */}
       <span
         className="flex-shrink-0 rounded-sm"
         style={{
-          width: 10,
-          height: 10,
+          width: 8,
+          height: 8,
           border: `1px solid ${isOn ? dotColor : 'var(--t4)'}`,
           background: isOn ? dotColor : 'transparent',
         }}
@@ -36,19 +32,19 @@ export default function FilterRow({ option, isOn, onToggle }: Props) {
 
       {/* Label */}
       <span
-        className="mono flex-1 text-left truncate"
-        style={{ color: isOn ? 'var(--t2)' : 'var(--t4)' }}
+        className="mono flex-shrink-0 ml-1.5 truncate text-left"
+        style={{ color: isOn ? 'var(--t2)' : 'var(--t4)', fontSize: 10 }}
       >
         {option.label}
       </span>
 
-      {/* Dot leader fill */}
-      <span className="flex-1 min-w-4 border-b border-dotted border-[var(--bd-s)]" />
+      {/* Spacer */}
+      <span className="flex-1" />
 
       {/* Count */}
       <span
-        className="mono flex-shrink-0 text-right tabular-nums"
-        style={{ color: isOn ? 'var(--t3)' : 'var(--t4)', minWidth: 20 }}
+        className="mono flex-shrink-0 tabular-nums"
+        style={{ color: isOn ? 'var(--t3)' : 'var(--t4)', fontSize: 9, minWidth: 16, textAlign: 'right' }}
       >
         {option.count}
       </span>

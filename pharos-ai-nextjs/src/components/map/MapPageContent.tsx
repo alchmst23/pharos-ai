@@ -104,8 +104,6 @@ export default function FullMapPage() {
           <MapFilterPanel
             state={f.state}
             facets={f.facets}
-            totalVisible={f.totalVisible}
-            totalAll={f.totalAll}
             isFiltered={f.isFiltered}
             onToggleDataset={f.toggleDataset}
             onToggleType={f.toggleType}
