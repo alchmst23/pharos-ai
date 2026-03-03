@@ -1,27 +1,8 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import type { RssFeed } from '@/data/rssFeeds';
-
-interface FeedItem {
-  title: string;
-  link: string;
-  pubDate: string;
-  contentSnippet?: string;
-  creator?: string;
-  isoDate?: string;
-  categories?: string[];
-  imageUrl?: string;
-}
-
-interface FeedResult {
-  feedId: string;
-  feedTitle: string;
-  items: FeedItem[];
-  error?: string;
-  fresh?: boolean;
-  cachedAt?: number;
-}
+import type { RssFeed, FeedItem, FeedResult } from '@/types/domain';
+import { timeAgo } from '@/lib/format';
 
 interface NewsFeedColumnProps {
   feed: RssFeed;
@@ -29,19 +10,6 @@ interface NewsFeedColumnProps {
   showImages?: boolean;
   /** Pre-loaded items from parent batch fetch */
   preloaded?: FeedItem[];
-}
-
-function timeAgo(dateStr: string): string {
-  if (!dateStr) return '';
-  const ms = Date.now() - new Date(dateStr).getTime();
-  if (ms < 0) return 'just now';
-  const mins = Math.floor(ms / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  return `${days}d ago`;
 }
 
 export function NewsFeedColumn({ feed, color, showImages = false, preloaded }: NewsFeedColumnProps) {

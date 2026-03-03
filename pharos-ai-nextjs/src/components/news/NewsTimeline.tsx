@@ -1,19 +1,10 @@
 'use client';
 
 import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
-import { getFeedById, type RssFeed } from '@/data/rssFeeds';
+import { getFeedById } from '@/data/rssFeeds';
+import type { RssFeed, FeedItem } from '@/types/domain';
 
 // ─── Types ────────────────────────────────────────────────────
-
-interface FeedItem {
-  title: string;
-  link: string;
-  pubDate: string;
-  contentSnippet?: string;
-  creator?: string;
-  isoDate?: string;
-  imageUrl?: string;
-}
 
 interface TimelineArticle {
   id: string;
@@ -31,16 +22,8 @@ interface NewsTimelineProps {
 
 // ─── Colors ───────────────────────────────────────────────────
 
-const PERSPECTIVE_COLORS: Record<string, string> = {
-  WESTERN: '#3b82f6',
-  US_GOV: '#60a5fa',
-  ISRAELI: '#a78bfa',
-  IRANIAN: '#ef4444',
-  ARAB: '#f59e0b',
-  RUSSIAN: '#f97316',
-  CHINESE: '#dc2626',
-  INDEPENDENT: '#10b981',
-};
+import { PERSPECTIVE_COLORS } from '@/lib/news-colors';
+import { ago } from '@/lib/format';
 
 // ─── Tier → vertical distance from spine ──────────────────────
 
@@ -82,13 +65,7 @@ function formatHour(d: Date): string {
 }
 
 function formatTimeAgo(d: Date): string {
-  const ms = Date.now() - d.getTime();
-  if (ms < 60000) return 'now';
-  const mins = Math.floor(ms / 60000);
-  if (mins < 60) return `${mins}m`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h`;
-  return `${Math.floor(hrs / 24)}d`;
+  return ago(d.toISOString());
 }
 
 /** Proxy image through our cache to avoid rate limiting */

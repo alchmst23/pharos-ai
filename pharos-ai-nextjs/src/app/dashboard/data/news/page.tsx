@@ -2,33 +2,14 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { CONFLICT_COLLECTIONS, RSS_FEEDS, type ConflictCollection } from '@/data/rssFeeds';
+import { CONFLICT_COLLECTIONS, RSS_FEEDS } from '@/data/rssFeeds';
+import type { FeedItem } from '@/types/domain';
+import { clientCache, CLIENT_FRESH_TTL, type CachedFeed } from '@/lib/client-cache';
 import { ConflictBanner } from '@/components/news/ConflictBanner';
 import { ChannelView } from '@/components/news/ChannelView';
 import { AllFeedsView } from '@/components/news/AllFeedsView';
 
 type ViewMode = 'conflict' | 'all';
-
-// ─── Client-side cache (persists across re-renders) ───────────
-interface CachedFeed {
-  feedId: string;
-  items: FeedItem[];
-  fetchedAt: number;
-}
-
-interface FeedItem {
-  title: string;
-  link: string;
-  pubDate: string;
-  contentSnippet?: string;
-  creator?: string;
-  isoDate?: string;
-  categories?: string[];
-  imageUrl?: string;
-}
-
-const clientCache = new Map<string, CachedFeed>();
-const CLIENT_FRESH_TTL = 5 * 60 * 1000; // 5 min client-side
 
 export default function NewsPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('conflict');

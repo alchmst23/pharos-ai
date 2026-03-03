@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Parser from 'rss-parser';
+import type { FeedItem, FeedResult } from '@/types/domain';
 
 const parser = new Parser({
   timeout: 10000,
@@ -24,26 +25,6 @@ const parser = new Parser({
 const FRESH_TTL = 10 * 60 * 1000;    // 10 min — serve without any fetch
 const STALE_TTL = 30 * 60 * 1000;    // 30 min — serve stale + background refetch
 const refetchingSet = new Set<string>(); // track in-flight background refetches
-
-interface FeedItem {
-  title: string;
-  link: string;
-  pubDate: string;
-  contentSnippet?: string;
-  creator?: string;
-  categories?: string[];
-  isoDate?: string;
-  imageUrl?: string;
-}
-
-interface FeedResult {
-  feedId: string;
-  feedTitle: string;
-  items: FeedItem[];
-  error?: string;
-  cachedAt?: number;
-  fresh?: boolean;
-}
 
 interface CacheEntry {
   data: FeedResult;

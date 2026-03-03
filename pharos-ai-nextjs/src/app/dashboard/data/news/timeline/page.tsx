@@ -4,36 +4,10 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { RSS_FEEDS, getFeedById } from '@/data/rssFeeds';
 import { NewsTimeline } from '@/components/news/NewsTimeline';
 import Link from 'next/link';
-
-interface FeedItem {
-  title: string;
-  link: string;
-  pubDate: string;
-  contentSnippet?: string;
-  creator?: string;
-  isoDate?: string;
-  categories?: string[];
-  imageUrl?: string;
-}
-
-const PERSPECTIVE_COLORS: Record<string, string> = {
-  WESTERN: '#3b82f6', US_GOV: '#60a5fa', ISRAELI: '#a78bfa', IRANIAN: '#ef4444',
-  ARAB: '#f59e0b', RUSSIAN: '#f97316', CHINESE: '#dc2626', INDEPENDENT: '#10b981',
-};
-
-function timeAgo(dateStr: string): string {
-  if (!dateStr) return '';
-  const ms = Date.now() - new Date(dateStr).getTime();
-  if (ms < 60000) return 'just now';
-  const mins = Math.floor(ms / 60000);
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
-
-const clientCache = new Map<string, { items: FeedItem[]; fetchedAt: number }>();
-const CLIENT_FRESH_TTL = 5 * 60 * 1000;
+import type { FeedItem } from '@/types/domain';
+import { PERSPECTIVE_COLORS } from '@/lib/news-colors';
+import { timeAgo } from '@/lib/format';
+import { clientCache, CLIENT_FRESH_TTL } from '@/lib/client-cache';
 
 type ViewMode = 'feed' | 'timeline';
 
@@ -69,7 +43,7 @@ export default function TimelinePage() {
       const data = await res.json();
       const now = Date.now();
       for (const feed of data.feeds ?? []) {
-        if (feed.items?.length > 0) clientCache.set(feed.feedId, { items: feed.items, fetchedAt: now });
+        if (feed.items?.length > 0) clientCache.set(feed.feedId, { feedId: feed.feedId, items: feed.items, fetchedAt: now });
       }
       const map = new Map<string, FeedItem[]>();
       allIds.forEach(id => { const c = clientCache.get(id); if (c) map.set(id, c.items); });

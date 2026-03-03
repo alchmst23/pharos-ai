@@ -1,19 +1,8 @@
 'use client';
 
-import type { ConflictChannel } from '@/data/rssFeeds';
 import { getFeedsForChannel } from '@/data/rssFeeds';
+import type { ConflictChannel, FeedItem } from '@/types/domain';
 import { NewsFeedColumn } from './NewsFeedColumn';
-
-interface FeedItem {
-  title: string;
-  link: string;
-  pubDate: string;
-  contentSnippet?: string;
-  creator?: string;
-  isoDate?: string;
-  categories?: string[];
-  imageUrl?: string;
-}
 
 interface ChannelViewProps {
   channel: ConflictChannel;

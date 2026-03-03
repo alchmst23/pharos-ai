@@ -3,19 +3,8 @@
  * 15 conflict-relevant market indicators with Yahoo Finance tickers.
  */
 
-export interface EconomicIndex {
-  id: string;
-  ticker: string;          // Yahoo Finance symbol
-  name: string;
-  shortName: string;       // for compact cards
-  category: EconCategory;
-  tier: 1 | 2 | 3;        // 1 = critical to conflict, 2 = important, 3 = context
-  unit: string;            // "$", "%", "pts", "¢/gal"
-  description: string;
-  color: string;
-}
-
-export type EconCategory = 'ENERGY' | 'SAFE_HAVEN' | 'EQUITIES' | 'VOLATILITY' | 'CURRENCY' | 'DEFENSE' | 'SHIPPING';
+import type { EconomicIndex, EconCategory } from '@/types/domain';
+export type { EconomicIndex, EconCategory };
 
 export const ECON_CATEGORIES: { key: EconCategory; label: string; color: string; description: string }[] = [
   { key: 'ENERGY',     label: 'ENERGY',       color: '#ef4444', description: 'Oil, gas, and energy commodities — direct conflict impact' },

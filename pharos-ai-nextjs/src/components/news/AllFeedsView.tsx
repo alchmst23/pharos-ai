@@ -3,31 +3,10 @@
 import { RSS_FEEDS } from '@/data/rssFeeds';
 import { NewsFeedColumn } from './NewsFeedColumn';
 import { useState, useMemo } from 'react';
+import { PERSPECTIVE_COLORS } from '@/lib/news-colors';
+import type { FeedItem } from '@/types/domain';
 
 const PERSPECTIVES = ['ALL', 'WESTERN', 'US_GOV', 'ISRAELI', 'IRANIAN', 'ARAB', 'RUSSIAN', 'CHINESE', 'INDEPENDENT'] as const;
-
-const PERSPECTIVE_COLORS: Record<string, string> = {
-  ALL: '#6b7280',
-  WESTERN: '#3b82f6',
-  US_GOV: '#60a5fa',
-  ISRAELI: '#a78bfa',
-  IRANIAN: '#ef4444',
-  ARAB: '#f59e0b',
-  RUSSIAN: '#f97316',
-  CHINESE: '#dc2626',
-  INDEPENDENT: '#10b981',
-};
-
-interface FeedItem {
-  title: string;
-  link: string;
-  pubDate: string;
-  contentSnippet?: string;
-  creator?: string;
-  isoDate?: string;
-  categories?: string[];
-  imageUrl?: string;
-}
 
 interface AllFeedsViewProps {
   showImages: boolean;

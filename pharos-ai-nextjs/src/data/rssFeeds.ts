@@ -3,43 +3,8 @@
  * 30 curated feeds from major global news sources + conflict-specific collections.
  */
 
-export interface RssFeed {
-  id: string;
-  name: string;
-  url: string;
-  /** Bias/perspective label */
-  perspective: 'WESTERN' | 'US_GOV' | 'ISRAELI' | 'IRANIAN' | 'ARAB' | 'RUSSIAN' | 'CHINESE' | 'INDEPENDENT' | 'INTL_ORG';
-  /** Country of origin */
-  country: string;
-  /** Tags for filtering */
-  tags: string[];
-  /** Whether this is a state-funded outlet */
-  stateFunded?: boolean;
-  /**
-   * Source importance tier (1–4). Determines proximity to the timeline spine.
-   * 1 = Wire services / primary sources (Reuters, AP, official gov)
-   * 2 = Major global outlets (BBC, NYT, CNN, Al Jazeera)
-   * 3 = Regional / specialist (ToI, JPost, FP, War Zone)
-   * 4 = State media / niche (Press TV, RT, TASS, Xinhua)
-   */
-  tier: 1 | 2 | 3 | 4;
-}
-
-export interface ConflictCollection {
-  id: string;
-  name: string;
-  description: string;
-  /** The 4 key channels for this conflict */
-  channels: ConflictChannel[];
-}
-
-export interface ConflictChannel {
-  label: string;
-  description: string;
-  perspective: string;
-  feedIds: string[];
-  color: string;
-}
+import type { RssFeed, ConflictCollection, ConflictChannel } from '@/types/domain';
+export type { RssFeed, ConflictCollection, ConflictChannel };
 
 // ─── ALL FEEDS (30) ───────────────────────────────────────────
 

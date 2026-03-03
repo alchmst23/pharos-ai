@@ -133,8 +133,8 @@ export interface XPost {
 }
 
 // ── Map data types live in src/data/mapData.ts + src/data/mapTokens.ts ───────
-// (Not re-defined here — that system uses Extract<> from mapTokens which
-//  requires co-location with the token types.)
+// (Map token types use Extract<> from mapTokens which requires co-location
+//  with the token definitions. ActorKey is a string alias defined there.)
 
 // ── Map stories ───────────────────────────────────────────────────────────────
 
@@ -161,7 +161,159 @@ export interface MapStory {
   events: StoryEvent[];
 }
 
+// ── RSS News Feed ─────────────────────────────────────────────────────────────
+
+export interface FeedItem {
+  title: string;
+  link: string;
+  pubDate: string;
+  contentSnippet?: string;
+  creator?: string;
+  categories?: string[];
+  isoDate?: string;
+  imageUrl?: string;
+}
+
+export interface FeedResult {
+  feedId: string;
+  feedTitle: string;
+  items: FeedItem[];
+  error?: string;
+  cachedAt?: number;
+  fresh?: boolean;
+}
+
+// ── RSS Feed Sources ──────────────────────────────────────────────────────────
+
+export interface RssFeed {
+  id: string;
+  name: string;
+  url: string;
+  /** Bias/perspective label */
+  perspective: 'WESTERN' | 'US_GOV' | 'ISRAELI' | 'IRANIAN' | 'ARAB' | 'RUSSIAN' | 'CHINESE' | 'INDEPENDENT' | 'INTL_ORG';
+  /** Country of origin */
+  country: string;
+  /** Tags for filtering */
+  tags: string[];
+  /** Whether this is a state-funded outlet */
+  stateFunded?: boolean;
+  /**
+   * Source importance tier (1–4). Determines proximity to the timeline spine.
+   * 1 = Wire services / primary sources (Reuters, AP, official gov)
+   * 2 = Major global outlets (BBC, NYT, CNN, Al Jazeera)
+   * 3 = Regional / specialist (ToI, JPost, FP, War Zone)
+   * 4 = State media / niche (Press TV, RT, TASS, Xinhua)
+   */
+  tier: 1 | 2 | 3 | 4;
+}
+
+export interface ConflictCollection {
+  id: string;
+  name: string;
+  description: string;
+  /** The 4 key channels for this conflict */
+  channels: ConflictChannel[];
+}
+
+export interface ConflictChannel {
+  label: string;
+  description: string;
+  perspective: string;
+  feedIds: string[];
+  color: string;
+}
+
+// ── Economic Indexes ──────────────────────────────────────────────────────────
+
+export type EconCategory = 'ENERGY' | 'SAFE_HAVEN' | 'EQUITIES' | 'VOLATILITY' | 'CURRENCY' | 'DEFENSE' | 'SHIPPING';
+
+export interface EconomicIndex {
+  id: string;
+  ticker: string;          // Yahoo Finance symbol
+  name: string;
+  shortName: string;       // for compact cards
+  category: EconCategory;
+  tier: 1 | 2 | 3;        // 1 = critical to conflict, 2 = important, 3 = context
+  unit: string;            // "$", "%", "pts", "¢/gal"
+  description: string;
+  color: string;
+}
+
+// ── Time-series points ────────────────────────────────────────────────────────
+
+export interface TimePoint {
+  t: number;  // unix timestamp (seconds)
+  p: number;  // probability / price 0–1
+}
+
 // ── Prediction markets ────────────────────────────────────────────────────────
+
+export interface SubMarket {
+  id: string;
+  question: string;
+  groupItemTitle: string;
+  outcomes: string[];
+  prices: number[];          // mid prices [YES, NO]
+  lastTradePrice: number;
+  bestBid: number;
+  bestAsk: number;
+  spread: number;
+  volume: number;
+  volume24hr: number;
+  volume1wk: number;
+  volume1mo: number;
+  active: boolean;
+  closed: boolean;
+  endDate: string;
+  yesTokenId: string;
+  conditionId: string;
+}
+
+export interface PredictionMarket {
+  id: string;
+  title: string;
+  description: string;       // up to 800 chars
+  category: string;          // empty — assigned manually by LLM pipeline
+  // primary market stats (from highest-volume sub-market)
+  outcomes: string[];
+  prices: number[];
+  lastTradePrice: number;
+  bestBid: number;
+  bestAsk: number;
+  spread: number;
+  // event-level aggregates
+  volume: number;
+  volume24hr: number;
+  volume1wk: number;
+  volume1mo: number;
+  volume1yr: number;
+  liquidity: number;
+  openInterest: number;
+  competitive: number;
+  active: boolean;
+  closed: boolean;
+  startDate: string;
+  endDate: string;
+  image: string;
+  polyUrl: string;
+  conditionId: string;
+  yesTokenId: string;
+  // all sub-markets in the event (group events have many)
+  subMarkets: SubMarket[];
+}
+
+// ── Market data (financial) ───────────────────────────────────────────────────
+
+export interface MarketResult {
+  ticker: string;
+  price: number;
+  previousClose: number;
+  change: number;
+  changePct: number;
+  currency: string;
+  chart: { time: number; value: number }[];
+  error?: string;
+}
 
 export interface MarketGroup {
   id: string;
