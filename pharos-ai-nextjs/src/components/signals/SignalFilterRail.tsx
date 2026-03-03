@@ -1,8 +1,9 @@
 'use client';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { FilterBlock, CheckboxRow, ToggleRow } from '@/components/shared/FilterControls';
+import { DaySelector } from '@/components/shared/DaySelector';
 
-import type { Significance, AccountType } from '@/types/domain';
+import type { Significance, AccountType, ConflictDay } from '@/types/domain';
 export type { Significance, AccountType };
 
 const SIG_LABELS: Significance[] = ['BREAKING', 'HIGH', 'STANDARD'];
@@ -20,11 +21,16 @@ interface Props {
   onSigChange:  (s: Significance, v: boolean) => void;
   onAcctChange: (a: AccountType, v: boolean) => void;
   onPharosOnly: (v: boolean) => void;
+  currentDay:   ConflictDay;
+  onDayChange:  (day: ConflictDay) => void;
+  showAll:      boolean;
+  onAllClick:   () => void;
 }
 
 export function SignalFilterRail({
   sigFilter, acctFilter, pharosOnly, totalShown, totalAll,
   onSigChange, onAcctChange, onPharosOnly,
+  currentDay, onDayChange, showAll, onAllClick,
 }: Props) {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -33,6 +39,17 @@ export function SignalFilterRail({
         <span className="section-title">Signal Filters</span>
       </div>
       <ScrollArea className="flex-1">
+        <FilterBlock label="CONFLICT DAY">
+          <div className="px-3 py-1">
+            <DaySelector
+              currentDay={currentDay}
+              onDayChange={onDayChange}
+              showAll
+              allSelected={showAll}
+              onAllClick={onAllClick}
+            />
+          </div>
+        </FilterBlock>
         <FilterBlock label="SIGNIFICANCE">
           {SIG_LABELS.map(s => (
             <CheckboxRow key={s} label={s} color={SIG_C[s]}

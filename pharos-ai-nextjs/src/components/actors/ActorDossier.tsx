@@ -7,22 +7,36 @@ import Flag from '@/components/shared/Flag';
 import XPostCard from '@/components/shared/XPostCard';
 import { ACT_C, STA_C, type Actor } from '@/data/iranActors';
 import { getPostsForActor } from '@/data/iranXPosts';
+import { getActorForDay } from '@/lib/day-filter';
+import type { ConflictDay } from '@/types/domain';
+import { CONFLICT_DAYS } from '@/types/domain';
 
 const TYPE_C: Record<string, string> = {
   MILITARY: 'var(--danger)', DIPLOMATIC: 'var(--info)',
   POLITICAL: 'var(--cyber)', ECONOMIC: 'var(--warning)', INTELLIGENCE: 'var(--t2)',
 };
 
+const DAY_LABELS: Record<ConflictDay, string> = {
+  '2026-02-28': 'D1',
+  '2026-03-01': 'D2',
+  '2026-03-02': 'D3',
+};
+
 interface Props {
   actor: Actor;
   tab: 'intel' | 'signals';
   onTabChange: (t: 'intel' | 'signals') => void;
+  currentDay: ConflictDay;
 }
 
-export function ActorDossier({ actor, tab, onTabChange }: Props) {
-  const actC   = ACT_C[actor.activityLevel] ?? 'var(--t2)';
-  const staC   = STA_C[actor.stance] ?? 'var(--t2)';
+export function ActorDossier({ actor, tab, onTabChange, currentDay }: Props) {
+  const snap   = getActorForDay(actor, currentDay);
+  const actC   = ACT_C[snap.activityLevel] ?? 'var(--t2)';
+  const staC   = STA_C[snap.stance] ?? 'var(--t2)';
   const xPosts = getPostsForActor(actor.id);
+
+  // Filter recent actions to selected day
+  const dayActions = actor.recentActions.filter(a => a.date === currentDay);
 
   const tabs = [
     { value: 'intel'   as const, label: 'ACTOR INTELLIGENCE' },
@@ -47,13 +61,13 @@ export function ActorDossier({ actor, tab, onTabChange }: Props) {
                 className="text-[8px] font-bold tracking-[0.06em] px-2 py-0.5"
                 style={{ border: `1px solid ${actC}`, color: actC }}
               >
-                {actor.activityLevel}
+                {snap.activityLevel}
               </span>
               <span
                 className="text-[8px] font-bold tracking-[0.06em] px-2 py-0.5"
                 style={{ border: `1px solid ${staC}`, color: staC }}
               >
-                {actor.stance}
+                {snap.stance}
               </span>
             </div>
             <span className="mono text-[10px] text-[var(--t2)]">{actor.fullName}</span>
@@ -61,10 +75,33 @@ export function ActorDossier({ actor, tab, onTabChange }: Props) {
           </div>
           <div className="shrink-0 flex items-center gap-1.5">
             <div className="h-1.5 w-20 bg-[var(--bd)]">
-              <div style={{ width: `${actor.activityScore}%`, height: '100%', background: actC }} />
+              <div style={{ width: `${snap.activityScore}%`, height: '100%', background: actC }} />
             </div>
-            <span className="mono text-[11px]" style={{ color: actC }}>{actor.activityScore}%</span>
+            <span className="mono text-[11px]" style={{ color: actC }}>{snap.activityScore}%</span>
           </div>
+        </div>
+
+        {/* Stance timeline — 3 pills showing stance across days */}
+        <div className="flex items-center gap-1 mt-1">
+          <span className="label text-[7px] text-[var(--t4)] mr-1">STANCE</span>
+          {CONFLICT_DAYS.map(day => {
+            const ds = getActorForDay(actor, day);
+            const sc = STA_C[ds.stance] ?? 'var(--t2)';
+            const isCurrent = day === currentDay;
+            return (
+              <div
+                key={day}
+                className="flex items-center gap-[3px] px-[6px] py-[2px]"
+                style={{
+                  background: sc + '18',
+                  border: `1px solid ${isCurrent ? sc : 'transparent'}`,
+                }}
+              >
+                <span className="mono text-[7px] font-bold" style={{ color: sc }}>{DAY_LABELS[day]}</span>
+                <span className="text-[7px] font-bold tracking-[0.04em]" style={{ color: sc }}>{ds.stance}</span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -77,7 +114,7 @@ export function ActorDossier({ actor, tab, onTabChange }: Props) {
                 <SectionDivider label="SAYING — OFFICIAL POSITION" />
                 <div className="pl-3" style={{ borderLeft: `3px solid ${staC}` }}>
                   <p className="text-[12.5px] text-[var(--t1)] leading-relaxed italic">
-                    {actor.saying}
+                    {snap.saying}
                   </p>
                 </div>
               </div>
@@ -85,7 +122,7 @@ export function ActorDossier({ actor, tab, onTabChange }: Props) {
               <div className="mb-5">
                 <SectionDivider label="DOING — VERIFIED ACTIONS" />
                 <div className="flex flex-col gap-1">
-                  {actor.doing.map((action, i) => (
+                  {snap.doing.map((action, i) => (
                     <div key={i} className="flex gap-2.5 px-2.5 py-1.5 border border-[var(--bd)]">
                       <span className="text-xs shrink-0 mt-px" style={{ color: actC }}>▸</span>
                       <span className="text-xs text-[var(--t1)] leading-snug">{action}</span>
@@ -97,14 +134,14 @@ export function ActorDossier({ actor, tab, onTabChange }: Props) {
               <div className="mb-5">
                 <SectionDivider label="PHAROS ASSESSMENT" />
                 <div className="border-l-[3px] border-[var(--blue)] pl-3">
-                  <p className="text-[12.5px] text-[var(--t1)] leading-relaxed">{actor.assessment}</p>
+                  <p className="text-[12.5px] text-[var(--t1)] leading-relaxed">{snap.assessment}</p>
                 </div>
               </div>
 
               <div className="mb-5">
-                <SectionDivider label={`RECENT ACTIONS (${actor.recentActions.length})`} />
+                <SectionDivider label={`RECENT ACTIONS — ${currentDay} (${dayActions.length})`} />
                 <div className="flex flex-col gap-1">
-                  {actor.recentActions.map((action, i) => {
+                  {dayActions.map((action, i) => {
                     const ac = TYPE_C[action.type] ?? 'var(--t2)';
                     return (
                       <div
@@ -134,6 +171,9 @@ export function ActorDossier({ actor, tab, onTabChange }: Props) {
                       </div>
                     );
                   })}
+                  {dayActions.length === 0 && (
+                    <p className="text-[10px] text-[var(--t4)] py-2">No recorded actions for this day</p>
+                  )}
                 </div>
               </div>
 

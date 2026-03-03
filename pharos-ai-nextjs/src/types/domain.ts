@@ -3,6 +3,37 @@
 // Data files in src/data/ import from here — they never define types.
 // Component prop interfaces stay local to the component.
 
+// ── Conflict Days ────────────────────────────────────────────────────────────
+
+export type ConflictDay = '2026-02-28' | '2026-03-01' | '2026-03-02';
+export const CONFLICT_DAYS: ConflictDay[] = ['2026-02-28', '2026-03-01', '2026-03-02'];
+
+export interface ActorDaySnapshot {
+  activityLevel: ActivityLevel;
+  activityScore: number;
+  stance: Stance;
+  saying: string;
+  doing: string[];
+  assessment: string;
+}
+
+export interface ConflictDaySnapshot {
+  day: ConflictDay;
+  dayLabel: string;
+  summary: string;
+  keyFacts: string[];
+  escalation: number;
+  casualties: {
+    us:       { kia: number; wounded: number; civilians: number };
+    israel:   { kia: number; wounded: number; civilians: number; injured: number };
+    iran:     { killed: number; injured: number };
+    lebanon:  { killed: number; injured: number };
+    regional: Record<string, { killed: number; injured: number }>;
+  };
+  economicImpact: { chips: { label: string; val: string; sub: string; color: string }[]; narrative: string };
+  scenarios: { label: string; subtitle: string; color: string; prob: string; body: string }[];
+}
+
 // ── Conflict ─────────────────────────────────────────────────────────────────
 
 export type ThreatLevel = 'CRITICAL' | 'HIGH' | 'ELEVATED' | 'MONITORING';
@@ -36,6 +67,7 @@ export interface Actor {
   recentActions: RecentAction[];
   keyFigures: string[];
   linkedEventIds: string[];
+  daySnapshots: Record<ConflictDay, ActorDaySnapshot>;
 }
 
 // ── Events ───────────────────────────────────────────────────────────────────

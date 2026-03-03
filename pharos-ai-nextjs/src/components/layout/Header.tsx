@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { CONFLICT }   from '@/data/iranConflict';
 import { EVENTS }     from '@/data/iranEvents';
 import { fmtDate }    from '@/lib/format';
+import { CONFLICT_DAYS } from '@/types/domain';
 
 const NAV = [
   { label: 'OVERVIEW',    href: '/dashboard'              },
@@ -14,6 +15,11 @@ const NAV = [
   { label: 'MAP',         href: '/dashboard/map'          },
   { label: 'DATA',        href: '/dashboard/data'          },
 ];
+
+const DAY_COUNT = CONFLICT_DAYS.length;
+const LATEST_DAY = CONFLICT_DAYS[CONFLICT_DAYS.length - 1];
+const LATEST_LABEL = `DAY ${DAY_COUNT}`;
+const LATEST_SHORT = LATEST_DAY === '2026-03-02' ? 'MAR 2, 2026' : LATEST_DAY;
 
 export function Header() {
   const path = usePathname();
@@ -58,6 +64,15 @@ export function Header() {
             ONGOING
           </span>
         </div>
+
+        {/* Day indicator */}
+        <div className="w-px h-4 bg-[var(--bd)]" />
+        <span className="mono text-[9px] font-bold text-[var(--warning)] tracking-[0.06em]">
+          {LATEST_LABEL}
+        </span>
+        <span className="mono text-[8px] text-[var(--t4)] tracking-[0.04em]">
+          {LATEST_SHORT}
+        </span>
       </Link>
 
       {/* ── Nav tabs ── */}

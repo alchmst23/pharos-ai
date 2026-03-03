@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { ArrowRight, ArrowLeft, X as XIcon, Plus } from 'lucide-react';
@@ -14,6 +14,12 @@ import { X_POSTS } from '@/data/iranXPosts';
 import XPostCard from '@/components/shared/XPostCard';
 import Flag from '@/components/shared/Flag';
 import { CasChip } from '@/app/dashboard/overview/CasChip';
+import { DaySelector } from '@/components/shared/DaySelector';
+import { getConflictForDay, getActorForDay, getEventsForDay, getPostsForDay } from '@/lib/day-filter';
+import type { ConflictDay } from '@/types/domain';
+import { CONFLICT_DAYS } from '@/types/domain';
+
+const DashDayCtx = createContext<ConflictDay>(CONFLICT_DAYS[CONFLICT_DAYS.length - 1]);
 
 const FullMapPage = dynamic(() => import('@/components/map/MapPageContent'),                           { ssr: false });
 
@@ -71,14 +77,16 @@ const SEV_CLS: Record<string, string> = {
 // ─── individual widgets ──────────────────────────────────────────────────────
 
 function SituationWidget() {
+  const day = useContext(DashDayCtx);
+  const snap = getConflictForDay(day);
   return (
     <div className="h-full overflow-y-auto px-[18px] py-[14px]">
       <div className="mb-2.5">
         <span className="label text-[8px] text-[var(--t4)]">
-          UNCLASSIFIED // PHAROS ANALYTICAL // {fmtDate(CONFLICT.startDate)} →
+          UNCLASSIFIED // PHAROS ANALYTICAL // {snap.dayLabel} — {day}
         </span>
       </div>
-      <p className="text-[13px] text-[var(--t1)] leading-relaxed mb-2.5">{CONFLICT.summary}</p>
+      <p className="text-[13px] text-[var(--t1)] leading-relaxed mb-2.5">{snap.summary}</p>
       <div className="flex gap-3 mt-2.5">
         <div className="flex-1 px-3 py-2 bg-[var(--bg-2)] border border-[var(--bd)] [border-left:3px_solid_var(--blue)]">
           <div className="label text-[8px] mb-1 text-[var(--blue)]">US OBJECTIVE</div>
@@ -90,19 +98,20 @@ function SituationWidget() {
         </div>
       </div>
       <div className="flex gap-[14px] mt-3 flex-wrap">
-        <CasChip label="US KIA"       val={String(CONFLICT.casualties.us.kia)}                                        color="var(--danger)"  />
-        <CasChip label="IL Civilians" val={String(CONFLICT.casualties.israel.civilians)}                              color="var(--warning)" />
-        <CasChip label="IR Killed"    val={String(CONFLICT.casualties.iran.killed)}                                   color="var(--t2)"      />
-        <CasChip label="Regional"     val={String(Object.values(CONFLICT.casualties.regional).reduce((s, c) => s + c.killed, 0))} color="var(--t3)"      />
+        <CasChip label="US KIA"       val={String(snap.casualties.us.kia)}                                        color="var(--danger)"  />
+        <CasChip label="IL Civilians" val={String(snap.casualties.israel.civilians)}                              color="var(--warning)" />
+        <CasChip label="IR Killed"    val={String(snap.casualties.iran.killed)}                                   color="var(--t2)"      />
+        <CasChip label="Regional"     val={String(Object.values(snap.casualties.regional).reduce((s, c) => s + c.killed, 0))} color="var(--t3)"      />
       </div>
     </div>
   );
 }
 
 function LatestEventsWidget() {
+  const day = useContext(DashDayCtx);
   const events = useMemo(
-    () => [...EVENTS].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 30),
-    [],
+    () => getEventsForDay(day).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 30),
+    [day],
   );
   return (
     <div className="h-full overflow-y-auto">
@@ -135,11 +144,13 @@ function LatestEventsWidget() {
 }
 
 function ActorsWidget() {
+  const day = useContext(DashDayCtx);
   return (
     <div className="h-full overflow-y-auto">
       {ACTORS.map((actor, i) => {
-        const actC = ACT_C[actor.activityLevel] ?? 'var(--t2)';
-        const staC = STA_C[actor.stance] ?? 'var(--t2)';
+        const snap = getActorForDay(actor, day);
+        const actC = ACT_C[snap.activityLevel] ?? 'var(--t2)';
+        const staC = STA_C[snap.stance] ?? 'var(--t2)';
         return (
           <Link key={actor.id} href={`/dashboard/actors?actor=${actor.id}`} className="no-underline">
             <div
@@ -155,16 +166,16 @@ function ActorsWidget() {
                   <span className="text-[11px] font-bold text-[var(--t1)]">{actor.name}</span>
                 </div>
                 <span className="text-[7px] font-bold px-[5px] py-[1px] tracking-[0.05em]" style={{ background: staC + '18', color: staC }}>
-                  {actor.stance}
+                  {snap.stance}
                 </span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[10.5px] text-[var(--t2)] leading-snug line-clamp-2">▸ {actor.doing[0]}</p>
+                <p className="text-[10.5px] text-[var(--t2)] leading-snug line-clamp-2">▸ {snap.doing[0]}</p>
               </div>
               <div className="shrink-0 w-10 flex flex-col gap-[3px] items-end">
-                <span className="mono text-[10px] font-bold" style={{ color: actC }}>{actor.activityScore}</span>
+                <span className="mono text-[10px] font-bold" style={{ color: actC }}>{snap.activityScore}</span>
                 <div className="w-9 h-[3px] bg-[var(--bd)]">
-                  <div className="h-full" style={{ width: `${actor.activityScore}%`, background: actC }} />
+                  <div className="h-full" style={{ width: `${snap.activityScore}%`, background: actC }} />
                 </div>
               </div>
             </div>
@@ -176,7 +187,8 @@ function ActorsWidget() {
 }
 
 function SignalsWidget() {
-  const posts = useMemo(() => X_POSTS.filter(p => p.significance === 'BREAKING').slice(0, 20), []);
+  const day = useContext(DashDayCtx);
+  const posts = useMemo(() => getPostsForDay(day).filter(p => p.significance === 'BREAKING').slice(0, 20), [day]);
   return (
     <div className="h-full overflow-y-auto p-[10px]">
       {posts.map(p => (
@@ -193,13 +205,15 @@ function MapWidget({ full }: { full: boolean }) {
 
 // ── Key Facts ──
 function KeyFactsWidget() {
+  const day = useContext(DashDayCtx);
+  const snap = getConflictForDay(day);
   return (
     <div className="h-full overflow-y-auto">
-      {CONFLICT.keyFacts.map((fact, i) => (
+      {snap.keyFacts.map((fact, i) => (
         <div
           key={i}
           className="flex gap-3 items-start px-[18px] py-[8px] hover:bg-[var(--bg-3)] transition-colors"
-          style={{ borderBottom: i < CONFLICT.keyFacts.length - 1 ? '1px solid var(--bd-s)' : 'none' }}
+          style={{ borderBottom: i < snap.keyFacts.length - 1 ? '1px solid var(--bd-s)' : 'none' }}
         >
           <span className="mono text-[9px] text-[var(--blue)] shrink-0 mt-[2px]">{String(i + 1).padStart(2, '0')}</span>
           <p className="text-[11px] text-[var(--t2)] leading-snug">{fact}</p>
@@ -211,11 +225,14 @@ function KeyFactsWidget() {
 
 // ── Casualties ──
 function CasualtiesWidget() {
+  const day = useContext(DashDayCtx);
+  const snap = getConflictForDay(day);
+  const cas = snap.casualties;
   const rows = [
-    { label: 'US KIA',            val: CONFLICT.casualties.us.kia,              sub: `${CONFLICT.casualties.us.wounded} wounded`,             color: 'var(--blue)' },
-    { label: 'US Civilians',      val: CONFLICT.casualties.us.civilians,         sub: 'civilian deaths',                                        color: 'var(--t3)'   },
-    { label: 'Israeli Civilians', val: CONFLICT.casualties.israel.civilians,     sub: `${CONFLICT.casualties.israel.injured ?? 40}+ injured`,  color: 'var(--warning)' },
-    { label: 'Iran Killed',       val: CONFLICT.casualties.iran.killed,          sub: '131 cities affected',                                    color: 'var(--danger)'  },
+    { label: 'US KIA',            val: cas.us.kia,              sub: `${cas.us.wounded} wounded`,             color: 'var(--blue)' },
+    { label: 'US Civilians',      val: cas.us.civilians,         sub: 'civilian deaths',                       color: 'var(--t3)'   },
+    { label: 'Israeli Civilians', val: cas.israel.civilians,     sub: `${cas.israel.injured}+ injured`,       color: 'var(--warning)' },
+    { label: 'Iran Killed',       val: cas.iran.killed,          sub: `${snap.dayLabel} cumulative`,           color: 'var(--danger)'  },
   ];
   return (
     <div className="h-full overflow-y-auto px-[18px] py-[14px]">
@@ -229,7 +246,7 @@ function CasualtiesWidget() {
         ))}
       </div>
       <div className="text-[10px] text-[var(--t3)] leading-relaxed border-t border-[var(--bd)] pt-3">
-        {Object.entries(CONFLICT.casualties.regional).map(([k, v]) => `${k.toUpperCase()}: ${v.killed} killed, ${v.injured} injured`).join(' · ')}
+        {Object.entries(cas.regional).map(([k, v]) => `${k.toUpperCase()}: ${v.killed} killed, ${v.injured} injured`).join(' · ')}
       </div>
     </div>
   );
@@ -355,13 +372,16 @@ function PredictionsWidget() {
 
 // ── Daily Brief ──
 function BriefWidget() {
+  const day = useContext(DashDayCtx);
+  const snap = getConflictForDay(day);
+  const dayEvents = getEventsForDay(day);
   const topEvents = useMemo(
-    () => [...EVENTS].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 8),
-    [],
+    () => [...dayEvents].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 8),
+    [dayEvents],
   );
 
-  const critCount = EVENTS.filter(e => e.severity === 'CRITICAL').length;
-  const highCount = EVENTS.filter(e => e.severity === 'HIGH').length;
+  const critCount = dayEvents.filter(e => e.severity === 'CRITICAL').length;
+  const highCount = dayEvents.filter(e => e.severity === 'HIGH').length;
 
   return (
     <div className="h-full overflow-y-auto">
@@ -370,7 +390,7 @@ function BriefWidget() {
         <div className="mono text-[8px] text-[var(--t4)] tracking-[0.14em] mb-1">UNCLASSIFIED // PHAROS ANALYTICAL</div>
         <div className="mono text-[13px] font-bold text-[var(--t1)] tracking-[0.04em]">DAILY INTELLIGENCE BRIEF</div>
         <div className="flex items-center gap-3 mt-[6px]">
-          <span className="mono text-[9px] text-[var(--t3)]">DAY 3 — OPERATIONS ONGOING</span>
+          <span className="mono text-[9px] text-[var(--t3)]">{snap.dayLabel} — OPERATIONS ONGOING</span>
           <span className="mono text-[9px] text-[var(--t4)]">•</span>
           <span className="mono text-[9px] text-[var(--t3)]">AS OF 12:00 UTC</span>
         </div>
@@ -380,10 +400,10 @@ function BriefWidget() {
       <div className="px-[18px] py-[12px] border-b border-[var(--bd)]">
         <div className="flex items-center justify-between mb-[6px]">
           <span className="label text-[8px] text-[var(--t4)] tracking-[0.10em]">ESCALATION INDEX</span>
-          <span className="mono text-[18px] font-bold text-[var(--danger)] leading-none">{CONFLICT.escalation}</span>
+          <span className="mono text-[18px] font-bold text-[var(--danger)] leading-none">{snap.escalation}</span>
         </div>
         <div className="w-full h-[6px] bg-[var(--bg-3)] rounded-sm overflow-hidden">
-          <div className="h-full bg-[var(--danger)] rounded-sm transition-all" style={{ width: `${CONFLICT.escalation}%` }} />
+          <div className="h-full bg-[var(--danger)] rounded-sm transition-all" style={{ width: `${snap.escalation}%` }} />
         </div>
         <div className="flex items-center gap-4 mt-[8px]">
           <div className="flex items-center gap-[6px]">
@@ -396,7 +416,7 @@ function BriefWidget() {
           </div>
           <div className="flex items-center gap-[6px]">
             <div className="w-[6px] h-[6px] rounded-full bg-[var(--blue)]" />
-            <span className="mono text-[9px] text-[var(--t3)]">{EVENTS.length} TOTAL</span>
+            <span className="mono text-[9px] text-[var(--t3)]">{dayEvents.length} TOTAL</span>
           </div>
         </div>
       </div>
@@ -404,12 +424,12 @@ function BriefWidget() {
       {/* executive summary — truncated */}
       <div className="px-[18px] py-[12px] border-b border-[var(--bd)]">
         <div className="label text-[8px] text-[var(--t4)] mb-[6px] tracking-[0.10em]">EXECUTIVE SUMMARY</div>
-        <p className="text-[11px] text-[var(--t2)] leading-relaxed">{CONFLICT.summary.slice(0, 600)}…</p>
+        <p className="text-[11px] text-[var(--t2)] leading-relaxed">{snap.summary.slice(0, 600)}…</p>
       </div>
 
-      {/* top events — last 24h */}
+      {/* top events */}
       <div className="px-[18px] py-[12px] border-b border-[var(--bd)]">
-        <div className="label text-[8px] text-[var(--t4)] mb-[6px] tracking-[0.10em]">TOP EVENTS — LAST 24H</div>
+        <div className="label text-[8px] text-[var(--t4)] mb-[6px] tracking-[0.10em]">TOP EVENTS — {snap.dayLabel}</div>
         {topEvents.map((evt, i) => {
           const sc = SEV_C[evt.severity] ?? 'var(--info)';
           return (
@@ -500,6 +520,7 @@ export function WorkspaceDashboard() {
   const [editing, setEditing] = useState(false);
   const [state, setState] = useState<WorkspaceState>(DEFAULT_STATE);
   const [mounted, setMounted] = useState(false);
+  const [dashDay, setDashDay] = useState<ConflictDay>(CONFLICT_DAYS[CONFLICT_DAYS.length - 1]);
 
 
   useEffect(() => {
@@ -582,6 +603,10 @@ export function WorkspaceDashboard() {
           {editing ? '✦ EDITING' : 'EDIT LAYOUT'}
         </button>
 
+        <div className="ml-1">
+          <DaySelector currentDay={dashDay} onDayChange={setDashDay} />
+        </div>
+
         {editing && (
           <>
             {/* Add widget to existing column or as new column */}
@@ -643,6 +668,7 @@ export function WorkspaceDashboard() {
       </div>
 
       {/* ── tiled layout ── */}
+      <DashDayCtx.Provider value={dashDay}>
       <ResizablePanelGroup
         orientation="horizontal"
         id="workspace-cols"
@@ -766,6 +792,7 @@ export function WorkspaceDashboard() {
           </React.Fragment>
         ))}
       </ResizablePanelGroup>
+      </DashDayCtx.Provider>
     </div>
   );
 }

@@ -5,20 +5,35 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import Flag from '@/components/shared/Flag';
+import { DaySelector } from '@/components/shared/DaySelector';
 import { ACTORS, ACT_C, STA_C, type Actor } from '@/data/iranActors';
 import { getPostsForActor } from '@/data/iranXPosts';
+import { getActorForDay } from '@/lib/day-filter';
+import type { ConflictDay } from '@/types/domain';
 
 interface Props {
   selectedId: string | null;
   onSelect: (id: string | null) => void;
+  currentDay: ConflictDay;
+  onDayChange: (day: ConflictDay) => void;
 }
 
-export function ActorList({ selectedId, onSelect }: Props) {
+export function ActorList({ selectedId, onSelect, currentDay, onDayChange }: Props) {
+  // Sort actors by selected day's activity score
+  const sorted = [...ACTORS].sort((a, b) =>
+    getActorForDay(b, currentDay).activityScore - getActorForDay(a, currentDay).activityScore
+  );
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <div className="panel-header justify-between">
         <span className="section-title">Actors</span>
         <Badge variant="outline" className="text-[9px] text-[var(--t4)] border-[var(--bd)]">{ACTORS.length}</Badge>
+      </div>
+
+      {/* Day selector */}
+      <div className="px-3 py-2 border-b border-[var(--bd)] bg-[var(--bg-2)] shrink-0">
+        <DaySelector currentDay={currentDay} onDayChange={onDayChange} />
       </div>
 
       {/* Column headers */}
@@ -27,10 +42,11 @@ export function ActorList({ selectedId, onSelect }: Props) {
       </div>
 
       <ScrollArea className="flex-1">
-        {ACTORS.map((actor: Actor) => {
+        {sorted.map((actor: Actor) => {
+          const snap   = getActorForDay(actor, currentDay);
           const isOn   = selectedId === actor.id;
-          const actC   = ACT_C[actor.activityLevel] ?? 'var(--t2)';
-          const staC   = STA_C[actor.stance] ?? 'var(--t2)';
+          const actC   = ACT_C[snap.activityLevel] ?? 'var(--t2)';
+          const staC   = STA_C[snap.stance] ?? 'var(--t2)';
           const xCount = getPostsForActor(actor.id).length;
           return (
             <Button
@@ -57,7 +73,7 @@ export function ActorList({ selectedId, onSelect }: Props) {
                     className="text-[7px] px-1 py-px tracking-[0.04em] rounded-sm"
                     style={{ color: staC, borderColor: staC, background: `${staC}15` }}
                   >
-                    {actor.stance}
+                    {snap.stance}
                   </Badge>
                   {xCount > 0 && <span className="mono text-[8px] text-[var(--t3)]">𝕏{xCount}</span>}
                 </div>
@@ -66,11 +82,11 @@ export function ActorList({ selectedId, onSelect }: Props) {
               {/* Activity progress bar */}
               <div className="flex flex-col justify-center gap-[3px]">
                 <Progress
-                  value={actor.activityScore}
+                  value={snap.activityScore}
                   className="h-[3px] rounded-[1px] bg-[var(--bd)]"
                   indicatorStyle={{ background: actC }}
                 />
-                <span className="mono text-[8px]" style={{ color: actC }}>{actor.activityScore}</span>
+                <span className="mono text-[8px]" style={{ color: actC }}>{snap.activityScore}</span>
               </div>
 
               <ArrowRight size={9} className="text-[var(--t3)] self-center" strokeWidth={1.5} />

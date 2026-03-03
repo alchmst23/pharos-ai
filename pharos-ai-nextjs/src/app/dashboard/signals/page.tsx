@@ -1,26 +1,33 @@
 'use client';
 export const dynamic = 'force-dynamic';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, Suspense } from 'react';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { usePanelLayout } from '@/hooks/use-panel-layout';
+import { useConflictDay } from '@/hooks/use-conflict-day';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { X_POSTS, type XPost } from '@/data/iranXPosts';
 import XPostCard from '@/components/shared/XPostCard';
 import { SignalFilterRail, type Significance, type AccountType } from '@/components/signals/SignalFilterRail';
 import { SectionHeader } from '@/components/signals/SectionHeader';
+import { getPostsForDay } from '@/lib/day-filter';
 
-export default function SignalsPage() {
+function SignalsInner() {
   const [sigFilter,  setSigFilter]  = useState<Record<Significance, boolean>>({ BREAKING: true, HIGH: true, STANDARD: true });
   const [acctFilter, setAcctFilter] = useState<Record<AccountType, boolean>>({ military: true, government: true, journalist: true, analyst: true, official: true });
   const [pharosOnly, setPharosOnly] = useState(false);
   const { defaultLayout, onLayoutChanged } = usePanelLayout({ id: 'signals' });
+  const { currentDay, setDay } = useConflictDay();
+  const [showAll, setShowAll] = useState(true);
 
-  const filtered = useMemo(() => X_POSTS.filter(p => {
-    if (!sigFilter[p.significance as Significance])       return false;
-    if (!acctFilter[p.accountType as AccountType])        return false;
-    if (pharosOnly && !p.pharosNote)                      return false;
-    return true;
-  }), [sigFilter, acctFilter, pharosOnly]);
+  const filtered = useMemo(() => {
+    const base = showAll ? X_POSTS : getPostsForDay(currentDay);
+    return base.filter(p => {
+      if (!sigFilter[p.significance as Significance])       return false;
+      if (!acctFilter[p.accountType as AccountType])        return false;
+      if (pharosOnly && !p.pharosNote)                      return false;
+      return true;
+    });
+  }, [sigFilter, acctFilter, pharosOnly, currentDay, showAll]);
 
   const breaking = filtered.filter(p => p.significance === 'BREAKING');
   const high     = filtered.filter(p => p.significance === 'HIGH');
@@ -30,15 +37,19 @@ export default function SignalsPage() {
     <ResizablePanelGroup orientation="horizontal" defaultLayout={defaultLayout} onLayoutChanged={onLayoutChanged} className="flex-1 min-w-0">
       <ResizablePanel id="filters" defaultSize="22%" minSize="15%" maxSize="35%" className="flex flex-col overflow-hidden min-w-[180px]">
         <SignalFilterRail
-        sigFilter={sigFilter}
-        acctFilter={acctFilter}
-        pharosOnly={pharosOnly}
-        totalShown={filtered.length}
-        totalAll={X_POSTS.length}
-        onSigChange={(s, v) => setSigFilter(p => ({ ...p, [s]: v }))}
-        onAcctChange={(a, v) => setAcctFilter(p => ({ ...p, [a]: v }))}
-        onPharosOnly={setPharosOnly}
-      />
+          sigFilter={sigFilter}
+          acctFilter={acctFilter}
+          pharosOnly={pharosOnly}
+          totalShown={filtered.length}
+          totalAll={X_POSTS.length}
+          onSigChange={(s, v) => setSigFilter(p => ({ ...p, [s]: v }))}
+          onAcctChange={(a, v) => setAcctFilter(p => ({ ...p, [a]: v }))}
+          onPharosOnly={setPharosOnly}
+          currentDay={currentDay}
+          onDayChange={(day) => { setDay(day); setShowAll(false); }}
+          showAll={showAll}
+          onAllClick={() => setShowAll(true)}
+        />
       </ResizablePanel>
       <ResizableHandle />
       <ResizablePanel id="content" defaultSize="78%" minSize="50%" className="flex flex-col overflow-hidden">
@@ -76,5 +87,13 @@ export default function SignalsPage() {
         </ScrollArea>
       </ResizablePanel>
     </ResizablePanelGroup>
+  );
+}
+
+export default function SignalsPage() {
+  return (
+    <Suspense fallback={<div className="flex flex-1 items-center justify-center"><span className="label">Loading…</span></div>}>
+      <SignalsInner />
+    </Suspense>
   );
 }

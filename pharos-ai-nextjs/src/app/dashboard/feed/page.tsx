@@ -5,15 +5,19 @@ import { useSearchParams } from 'next/navigation';
 import { FileText } from 'lucide-react';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { usePanelLayout } from '@/hooks/use-panel-layout';
+import { useConflictDay } from '@/hooks/use-conflict-day';
 import { EVENTS, type Severity, type EventType } from '@/data/iranEvents';
 import { FeedFilterRail, ALL_TYPES } from '@/components/feed/FeedFilterRail';
 import { EventLog } from '@/components/feed/EventLog';
 import { EventDetail } from '@/components/feed/EventDetail';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { getEventsForDay } from '@/lib/day-filter';
 
 function IntelFeedInner() {
   const searchParams = useSearchParams();
   const initEvent    = searchParams.get('event');
+  const { currentDay, setDay } = useConflictDay();
+  const [showAllDays, setShowAllDays] = useState(true);
 
   const [sevFilter,  setSevFilter]  = useState<Record<Severity, boolean>>({ CRITICAL: true, HIGH: true, STANDARD: true });
   const [typeFilter, setTypeFilter] = useState<Record<EventType, boolean>>(
@@ -26,13 +30,15 @@ function IntelFeedInner() {
 
   useEffect(() => { if (initEvent) setSelId(initEvent); }, [initEvent]);
 
-  const filtered = useMemo(() => EVENTS.filter(e => {
-    if (!sevFilter[e.severity]) return false;
-    if (!typeFilter[e.type])    return false;
-    if (verOnly && !e.verified) return false;
-    return true;
-  }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
-  [sevFilter, typeFilter, verOnly]);
+  const filtered = useMemo(() => {
+    const base = showAllDays ? EVENTS : getEventsForDay(currentDay);
+    return base.filter(e => {
+      if (!sevFilter[e.severity]) return false;
+      if (!typeFilter[e.type])    return false;
+      if (verOnly && !e.verified) return false;
+      return true;
+    }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }, [sevFilter, typeFilter, verOnly, currentDay, showAllDays]);
 
   const selected = EVENTS.find(e => e.id === selId) ?? null;
 
@@ -48,6 +54,10 @@ function IntelFeedInner() {
           onSevChange={(s, v) => setSevFilter(p => ({ ...p, [s]: v }))}
           onTypeChange={(t, v) => setTypeFilter(p => ({ ...p, [t]: v }))}
           onVerChange={setVerOnly}
+          currentDay={currentDay}
+          onDayChange={(day) => { setDay(day); setShowAllDays(false); }}
+          showAll={showAllDays}
+          onAllClick={() => setShowAllDays(true)}
         />
       </ResizablePanel>
       <ResizableHandle />

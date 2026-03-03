@@ -1,7 +1,9 @@
 'use client';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { FilterBlock, CheckboxRow } from '@/components/shared/FilterControls';
+import { DaySelector } from '@/components/shared/DaySelector';
 import type { Severity, EventType } from '@/data/iranEvents';
+import type { ConflictDay } from '@/types/domain';
 
 export const ALL_TYPES: EventType[] = ['MILITARY', 'DIPLOMATIC', 'INTELLIGENCE', 'ECONOMIC', 'HUMANITARIAN', 'POLITICAL'];
 
@@ -21,11 +23,16 @@ interface Props {
   onSevChange: (s: Severity, v: boolean) => void;
   onTypeChange: (t: EventType, v: boolean) => void;
   onVerChange: (v: boolean) => void;
+  currentDay: ConflictDay;
+  onDayChange: (day: ConflictDay) => void;
+  showAll: boolean;
+  onAllClick: () => void;
 }
 
 export function FeedFilterRail({
   sevFilter, typeFilter, verOnly, totalFiltered,
   onSevChange, onTypeChange, onVerChange,
+  currentDay, onDayChange, showAll, onAllClick,
 }: Props) {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -33,6 +40,17 @@ export function FeedFilterRail({
         <span className="section-title">Filters</span>
       </div>
       <ScrollArea className="flex-1">
+        <FilterBlock label="CONFLICT DAY">
+          <div className="px-3 py-1">
+            <DaySelector
+              currentDay={currentDay}
+              onDayChange={onDayChange}
+              showAll
+              allSelected={showAll}
+              onAllClick={onAllClick}
+            />
+          </div>
+        </FilterBlock>
         <FilterBlock label="SEVERITY">
           {(['CRITICAL', 'HIGH', 'STANDARD'] as Severity[]).map(s => (
             <CheckboxRow key={s} label={s} color={SEV_C[s]}
