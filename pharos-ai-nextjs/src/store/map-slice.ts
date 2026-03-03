@@ -1,47 +1,36 @@
-import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/toolkit';
 
-import { STRIKE_ARCS, MISSILE_TRACKS, TARGETS, ALLIED_ASSETS, THREAT_ZONES, HEAT_POINTS } from '@/data/mapData';
 import { extractInitialState, extractTimeExtent } from '@/lib/map-filter-engine';
 import type { DataArrays } from '@/lib/map-filter-engine';
 import type { MapViewState } from '@deck.gl/core';
 import type { MapStory } from '@/data/mapStories';
 import type { SelectedItem } from '@/components/map/MapDetailPanel';
 
-// ─── Static raw data (same as previously in use-map-filters) ─────────────────
+// ─── Async thunk ─────────────────────────────────────────────────────────────
 
-export const RAW_DATA: DataArrays = {
-  strikes:  STRIKE_ARCS,
-  missiles: MISSILE_TRACKS,
-  targets:  TARGETS,
-  assets:   ALLIED_ASSETS,
-  zones:    THREAT_ZONES,
-  heat:     HEAT_POINTS,
-};
-
-// ─── Compute initial values from data ────────────────────────────────────────
-
-const INITIAL_FILTER_STATE = extractInitialState(RAW_DATA);
-export const DATA_EXTENT = extractTimeExtent(RAW_DATA);
-
-function computeInitialViewExtent(): [number, number] {
-  const span = DATA_EXTENT[1] - DATA_EXTENT[0];
-  const threeDays = 3 * 86400_000;
-  if (span <= threeDays) return DATA_EXTENT;
-  return [Math.max(DATA_EXTENT[0], DATA_EXTENT[1] - threeDays), DATA_EXTENT[1]];
-}
-
-// Convert Set-based initial state to serializable arrays
-function toSerializable(fs: ReturnType<typeof extractInitialState>): SerializableFilterState {
-  return {
-    datasets:   [...fs.datasets],
-    types:      [...fs.types],
-    actors:     [...fs.actors],
-    statuses:   [...fs.statuses],
-    priorities: [...fs.priorities],
-    heat:       fs.heat,
-    timeRange:  fs.timeRange,
-  };
-}
+export const loadMapData = createAsyncThunk(
+  'map/loadMapData',
+  async (conflictId: string) => {
+    const res = await fetch(`/api/v1/conflicts/${conflictId}/map/data`);
+    if (!res.ok) throw new Error('Failed to load map data');
+    const { data } = await res.json();
+    return {
+      strikes:  data.strikes ?? [],
+      missiles: data.missiles ?? [],
+      targets:  data.targets ?? [],
+      assets:   data.assets ?? [],
+      zones:    data.threatZones ?? [],
+      heat:     data.heatPoints ?? [],
+    } as DataArrays;
+  },
+  {
+    condition: (_, { getState }) => {
+      const { map } = getState() as { map: MapState };
+      // Don't re-fetch if already loaded or currently loading
+      if (map.rawData || map.mapLoading) return false;
+    },
+  },
+);
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -56,11 +45,18 @@ export type SerializableFilterState = {
 };
 
 export type MapState = {
+  // Data loading
+  rawData: DataArrays | null;
+  mapLoading: boolean;
+  mapError: string | null;
+
   // Camera
   viewState: MapViewState;
 
   // Filter
   filters: SerializableFilterState;
+  initialFilters: SerializableFilterState;
+  dataExtent: [number, number];
   viewExtent: [number, number];
 
   // Interaction
@@ -103,43 +99,58 @@ export function persistMapPrefs(state: MapState): void {
   } catch { /* quota exceeded */ }
 }
 
-// ─── Initial state ───────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const INITIAL_VIEW: MapViewState = { longitude: 51.0, latitude: 30.0, zoom: 4.5, pitch: 0, bearing: 0 };
-
-export const INITIAL_SERIALIZABLE_FILTERS = toSerializable(INITIAL_FILTER_STATE);
-
-function buildInitialState(): MapState {
-  const defaults: MapState = {
-    viewState:    INITIAL_VIEW,
-    filters:      INITIAL_SERIALIZABLE_FILTERS,
-    viewExtent:   computeInitialViewExtent(),
-    activeStory:  null,
-    selectedItem: null,
-    sidebarOpen:  true,
-    mapStyle:     'dark',
-  };
-
-  const persisted = loadPersistedMapPrefs();
-  if (!persisted) return defaults;
-
+// Convert Set-based initial state to serializable arrays
+function toSerializable(fs: ReturnType<typeof extractInitialState>): SerializableFilterState {
   return {
-    ...defaults,
-    filters:     persisted.filters     ?? defaults.filters,
-    sidebarOpen: persisted.sidebarOpen ?? defaults.sidebarOpen,
-    mapStyle:    persisted.mapStyle    ?? defaults.mapStyle,
+    datasets:   [...fs.datasets],
+    types:      [...fs.types],
+    actors:     [...fs.actors],
+    statuses:   [...fs.statuses],
+    priorities: [...fs.priorities],
+    heat:       fs.heat,
+    timeRange:  fs.timeRange,
   };
 }
 
-const initialState: MapState = buildInitialState();
-
-// ─── Toggle helper — prevents empty arrays ───────────────────────────────────
-
+// Toggle helper — prevents empty arrays
 function toggleArr(arr: string[], item: string): string[] {
   const has = arr.includes(item);
   const next = has ? arr.filter(x => x !== item) : [...arr, item];
   return next.length === 0 ? arr : next;
 }
+
+// ─── Empty defaults ──────────────────────────────────────────────────────────
+
+const EMPTY_FILTERS: SerializableFilterState = {
+  datasets: [], types: [], actors: [], statuses: [], priorities: [],
+  heat: true, timeRange: null,
+};
+
+// ─── Initial state ───────────────────────────────────────────────────────────
+
+const INITIAL_VIEW: MapViewState = { longitude: 51.0, latitude: 30.0, zoom: 4.5, pitch: 0, bearing: 0 };
+
+function buildInitialState(): MapState {
+  const persisted = loadPersistedMapPrefs();
+  return {
+    rawData:    null,
+    mapLoading: false,
+    mapError:   null,
+    viewState:      INITIAL_VIEW,
+    filters:        persisted?.filters ?? EMPTY_FILTERS,
+    initialFilters: EMPTY_FILTERS,
+    dataExtent:     [0, 0],
+    viewExtent:     [0, 0],
+    activeStory:  null,
+    selectedItem: null,
+    sidebarOpen: persisted?.sidebarOpen ?? true,
+    mapStyle:    persisted?.mapStyle    ?? 'dark',
+  };
+}
+
+const initialState: MapState = buildInitialState();
 
 // ─── Slice ───────────────────────────────────────────────────────────────────
 
@@ -157,13 +168,13 @@ const mapSlice = createSlice({
       const d = action.payload;
       const next = toggleArr(state.filters.datasets, d);
       // When toggling a dataset ON, auto-enable all its types
-      if (next.includes(d) && !state.filters.datasets.includes(d)) {
+      if (next.includes(d) && !state.filters.datasets.includes(d) && state.rawData) {
         const items = ({
-          strikes:  RAW_DATA.strikes,
-          missiles: RAW_DATA.missiles,
-          targets:  RAW_DATA.targets,
-          assets:   RAW_DATA.assets,
-          zones:    RAW_DATA.zones,
+          strikes:  state.rawData.strikes,
+          missiles: state.rawData.missiles,
+          targets:  state.rawData.targets,
+          assets:   state.rawData.assets,
+          zones:    state.rawData.zones,
         } as Record<string, Array<{ type: string }>>)[d];
         if (items) {
           const types = new Set(state.filters.types);
@@ -195,7 +206,7 @@ const mapSlice = createSlice({
       state.viewExtent = action.payload;
     },
     resetFilters(state) {
-      state.filters = INITIAL_SERIALIZABLE_FILTERS;
+      state.filters = state.initialFilters;
     },
 
     // Interaction
@@ -221,6 +232,43 @@ const mapSlice = createSlice({
     setMapStyle(state, action: PayloadAction<'dark' | 'satellite'>) {
       state.mapStyle = action.payload;
     },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(loadMapData.pending, (state) => {
+        state.mapLoading = true;
+        state.mapError = null;
+      })
+      .addCase(loadMapData.fulfilled, (state, action) => {
+        state.rawData    = action.payload;
+        state.mapLoading = false;
+        state.mapError   = null;
+
+        // Compute initial filters from loaded data
+        const initial     = extractInitialState(action.payload);
+        const serializable = toSerializable(initial);
+        state.initialFilters = serializable;
+
+        // Compute data extent
+        const extent = extractTimeExtent(action.payload);
+        state.dataExtent = extent;
+
+        // Compute view extent (last 3 days or full span)
+        const span      = extent[1] - extent[0];
+        const threeDays = 3 * 86400_000;
+        state.viewExtent = span <= threeDays
+          ? extent
+          : [Math.max(extent[0], extent[1] - threeDays), extent[1]];
+
+        // If no persisted filters (datasets is empty), use computed initial
+        if (state.filters.datasets.length === 0) {
+          state.filters = serializable;
+        }
+      })
+      .addCase(loadMapData.rejected, (state, action) => {
+        state.mapLoading = false;
+        state.mapError   = action.error.message ?? 'Failed to load map data';
+      });
   },
 });
 

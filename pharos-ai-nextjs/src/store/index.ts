@@ -123,8 +123,8 @@ export const store = configureStore({
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: {
-        ignoredPaths: ['map.viewState', 'map.activeStory', 'map.selectedItem'],
-        ignoredActions: ['map/setViewState', 'map/activateStory', 'map/setActiveStory', 'map/setSelectedItem'],
+        ignoredPaths: ['map.viewState', 'map.activeStory', 'map.selectedItem', 'map.rawData'],
+        ignoredActions: ['map/setViewState', 'map/activateStory', 'map/setActiveStory', 'map/setSelectedItem', 'map/loadMapData/fulfilled', 'map/loadMapData/pending', 'map/loadMapData/rejected'],
       },
     }).prepend(listenerMiddleware.middleware),
 });

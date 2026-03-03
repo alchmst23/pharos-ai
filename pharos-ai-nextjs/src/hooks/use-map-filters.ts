@@ -9,7 +9,6 @@ import {
   setTimeRange   as setTimeRangeAction,
   setViewExtent  as setViewExtentAction,
   resetFilters   as resetFiltersAction,
-  DATA_EXTENT,
 } from '@/store/map-slice';
 import { selectFilterState, selectFilteredData, selectIsFiltered } from '@/store/map-selectors';
 
@@ -49,13 +48,16 @@ export type UseMapFiltersReturn = {
   setTimeRange:   (range: [number, number] | null) => void;
   resetFilters:   () => void;
   isFiltered:     boolean;
+  mapLoading:     boolean;
 };
 
 // ─── Hook (Redux adapter — same return type as before) ──────────────────────────
 
 export function useMapFilters(): UseMapFiltersReturn {
-  const dispatch = useAppDispatch();
+  const dispatch   = useAppDispatch();
+  const dataExtent = useAppSelector(s => s.map.dataExtent);
   const viewExtent = useAppSelector(s => s.map.viewExtent);
+  const mapLoading = useAppSelector(s => s.map.mapLoading);
   const { filtered, facets } = useAppSelector(selectFilteredData);
   const isFiltered = useAppSelector(selectIsFiltered);
   const state: FilterState = useAppSelector(selectFilterState);
@@ -64,7 +66,7 @@ export function useMapFilters(): UseMapFiltersReturn {
     state,
     filtered,
     facets,
-    dataExtent: DATA_EXTENT,
+    dataExtent,
     viewExtent,
     setViewExtent: (ext) => dispatch(setViewExtentAction(ext)),
     toggleDataset:  (d) => dispatch(toggleDatasetAction(d)),
@@ -76,5 +78,6 @@ export function useMapFilters(): UseMapFiltersReturn {
     setTimeRange:   (r) => dispatch(setTimeRangeAction(r)),
     resetFilters:   ()  => dispatch(resetFiltersAction()),
     isFiltered,
+    mapLoading,
   };
 }

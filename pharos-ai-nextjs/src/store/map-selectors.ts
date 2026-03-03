@@ -1,16 +1,19 @@
 import { createSelector } from '@reduxjs/toolkit';
 
 import { applyFilters } from '@/lib/map-filter-engine';
-import { RAW_DATA, INITIAL_SERIALIZABLE_FILTERS } from './map-slice';
 
 import { ACTOR_META } from '@/data/mapTokens';
 
 import type { RootState } from './index';
-import type { FilterState } from '@/lib/map-filter-engine';
+import type { FilterState, FilteredData, FilterFacets } from '@/lib/map-filter-engine';
 
-// ─── Convert serializable arrays → Set-based FilterState ─────────────────────
+// ─── Base selectors ──────────────────────────────────────────────────────────
 
 const selectSerializableFilters = (state: RootState) => state.map.filters;
+const selectInitialFilters      = (state: RootState) => state.map.initialFilters;
+const selectRawData             = (state: RootState) => state.map.rawData;
+
+// ─── Convert serializable arrays → Set-based FilterState ─────────────────────
 
 export const selectFilterState = createSelector(
   [selectSerializableFilters],
@@ -25,23 +28,29 @@ export const selectFilterState = createSelector(
   }),
 );
 
-// ─── Filtered data — only recomputes when filter state changes ───────────────
+// ─── Filtered data — only recomputes when filter state or raw data changes ───
+
+const EMPTY_RESULT: { filtered: FilteredData; facets: FilterFacets } = {
+  filtered: { strikes: [], missiles: [], targets: [], assets: [], zones: [], heat: [] },
+  facets:   { datasets: [], perDataset: {}, totalVisible: 0, totalAll: 0 },
+};
 
 export const selectFilteredData = createSelector(
-  [selectFilterState],
-  (filterState) => applyFilters(RAW_DATA, filterState, ACTOR_META),
+  [selectRawData, selectFilterState],
+  (rawData, filterState) =>
+    rawData ? applyFilters(rawData, filterState, ACTOR_META) : EMPTY_RESULT,
 );
 
 // ─── Derived boolean: are any filters active? ────────────────────────────────
 
 export const selectIsFiltered = createSelector(
-  [selectSerializableFilters],
-  (f) =>
-    f.datasets.length   < INITIAL_SERIALIZABLE_FILTERS.datasets.length   ||
-    f.types.length      < INITIAL_SERIALIZABLE_FILTERS.types.length      ||
-    f.actors.length     < INITIAL_SERIALIZABLE_FILTERS.actors.length     ||
-    f.priorities.length < INITIAL_SERIALIZABLE_FILTERS.priorities.length ||
-    f.statuses.length   < INITIAL_SERIALIZABLE_FILTERS.statuses.length   ||
+  [selectSerializableFilters, selectInitialFilters],
+  (f, initial) =>
+    f.datasets.length   < initial.datasets.length   ||
+    f.types.length      < initial.types.length      ||
+    f.actors.length     < initial.actors.length     ||
+    f.priorities.length < initial.priorities.length ||
+    f.statuses.length   < initial.statuses.length   ||
     !f.heat ||
     f.timeRange !== null,
 );
