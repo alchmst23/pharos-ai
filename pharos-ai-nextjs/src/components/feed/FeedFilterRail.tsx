@@ -15,7 +15,7 @@ const TYPE_C: Record<EventType, string> = {
   ECONOMIC: 'var(--warning)', HUMANITARIAN: 'var(--success)', POLITICAL: 'var(--t2)',
 };
 
-interface Props {
+type Props = {
   sevFilter: Record<Severity, boolean>;
   typeFilter: Record<EventType, boolean>;
   verOnly: boolean;
@@ -27,7 +27,7 @@ interface Props {
   onDayChange: (day: ConflictDay) => void;
   showAll: boolean;
   onAllClick: () => void;
-}
+};
 
 export function FeedFilterRail({
   sevFilter, typeFilter, verOnly, totalFiltered,

@@ -12,7 +12,7 @@ const SIG_C: Record<Significance, string> = {
   BREAKING: 'var(--danger)', HIGH: 'var(--warning)', STANDARD: 'var(--info)',
 };
 
-interface Props {
+type Props = {
   sigFilter:    Record<Significance, boolean>;
   acctFilter:   Record<AccountType, boolean>;
   pharosOnly:   boolean;
@@ -25,7 +25,7 @@ interface Props {
   onDayChange:  (day: ConflictDay) => void;
   showAll:      boolean;
   onAllClick:   () => void;
-}
+};
 
 export function SignalFilterRail({
   sigFilter, acctFilter, pharosOnly, totalShown, totalAll,

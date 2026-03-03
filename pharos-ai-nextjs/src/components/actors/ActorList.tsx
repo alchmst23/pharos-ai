@@ -11,12 +11,12 @@ import { getPostsForActor } from '@/data/iranXPosts';
 import { getActorForDay } from '@/lib/day-filter';
 import type { ConflictDay } from '@/types/domain';
 
-interface Props {
+type Props = {
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   currentDay: ConflictDay;
   onDayChange: (day: ConflictDay) => void;
-}
+};
 
 export function ActorList({ selectedId, onSelect, currentDay, onDayChange }: Props) {
   // Sort actors by selected day's activity score

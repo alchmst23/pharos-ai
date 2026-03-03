@@ -2,20 +2,9 @@
 
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useCallback } from 'react';
+import { dayLabel, dayShort, dayIndex } from '@/lib/day-filter';
 import type { ConflictDay } from '@/types/domain';
 import { CONFLICT_DAYS } from '@/types/domain';
-
-const DAY_LABELS: Record<ConflictDay, string> = {
-  '2026-02-28': 'DAY 1',
-  '2026-03-01': 'DAY 2',
-  '2026-03-02': 'DAY 3',
-};
-
-const DAY_SHORT: Record<ConflictDay, string> = {
-  '2026-02-28': 'FEB 28',
-  '2026-03-01': 'MAR 1',
-  '2026-03-02': 'MAR 2',
-};
 
 export function useConflictDay() {
   const searchParams = useSearchParams();
@@ -36,9 +25,9 @@ export function useConflictDay() {
   return {
     currentDay,
     setDay,
-    dayLabel: DAY_LABELS[currentDay],
-    dayShort: DAY_SHORT[currentDay],
-    dayIndex: CONFLICT_DAYS.indexOf(currentDay),
+    dayLabel: dayLabel(currentDay),
+    dayShort: dayShort(currentDay),
+    dayIndex: dayIndex(currentDay),
     allDays: CONFLICT_DAYS,
   };
 }

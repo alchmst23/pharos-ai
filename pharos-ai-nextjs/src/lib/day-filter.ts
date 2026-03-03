@@ -40,3 +40,14 @@ export function dayIndex(day: ConflictDay): number {
 export function dayLabel(day: ConflictDay): string {
   return `DAY ${dayIndex(day) + 1}`;
 }
+
+/** Short date: "FEB 28", "MAR 1", etc. */
+export function dayShort(day: ConflictDay): string {
+  const d = new Date(day + 'T00:00:00Z');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }).toUpperCase();
+}
+
+/** Abbreviated day label: "D1", "D2", etc. */
+export function dayAbbrev(day: ConflictDay): string {
+  return `D${dayIndex(day) + 1}`;
+}
