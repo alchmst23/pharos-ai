@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 
 import { Button } from '@/components/ui/button';
 
-import StoryCard from './StoryCard';
 import StoryTimeline from './StoryTimeline';
+import StoryDateGroup from './StoryDateGroup';
+import { groupByDay } from './story-utils';
 
 import { MAP_STORIES } from '@/data/mapStories';
 
@@ -29,12 +30,33 @@ type Props = {
 
 export default function MapSidebar({ isOpen, activeStory, onToggle, onActivateStory, onClearStory }: Props) {
   const [openStoryId, setOpenStoryId] = useState<string | null>(null);
+  const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
+
+  const days = useMemo(() => groupByDay(SORTED_STORIES), []);
+
+  // Auto-expand date group when a story is activated
+  useEffect(() => {
+    if (!activeStory) return;
+    const group = days.find(d => d.stories.some(s => s.id === activeStory.id));
+    if (group && !expandedDates.has(group.date)) {
+      setExpandedDates(prev => new Set(prev).add(group.date));
+    }
+  }, [activeStory, days, expandedDates]);
 
   const handleToggleStory = (story: MapStory) => {
     const opening = openStoryId !== story.id;
     setOpenStoryId(opening ? story.id : null);
     if (opening) onActivateStory(story);
     else onClearStory();
+  };
+
+  const toggleDate = (date: string) => {
+    setExpandedDates(prev => {
+      const next = new Set(prev);
+      if (next.has(date)) next.delete(date);
+      else next.add(date);
+      return next;
+    });
   };
 
   if (!isOpen) return null;
@@ -70,15 +92,17 @@ export default function MapSidebar({ isOpen, activeStory, onToggle, onActivateSt
         onActivate={(story) => { setOpenStoryId(story.id); onActivateStory(story); }}
       />
 
-      {/* Stories list */}
+      {/* Stories list — grouped by date */}
       <div className="panel-body">
-        {SORTED_STORIES.map(story => (
-          <StoryCard
-            key={story.id}
-            story={story}
-            isOpen={openStoryId === story.id}
-            onToggle={() => handleToggleStory(story)}
-            onFlyTo={() => onActivateStory(story)}
+        {days.map(group => (
+          <StoryDateGroup
+            key={group.date}
+            group={group}
+            isExpanded={expandedDates.has(group.date)}
+            onToggle={() => toggleDate(group.date)}
+            openStoryId={openStoryId}
+            onToggleStory={handleToggleStory}
+            onFlyTo={onActivateStory}
           />
         ))}
       </div>
