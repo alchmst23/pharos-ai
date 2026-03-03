@@ -41,11 +41,14 @@ export type ConflictStatus = 'ONGOING' | 'PAUSED' | 'CEASEFIRE' | 'RESOLVED';
 export interface Conflict {
   id: string;
   name: string;
-  codename: string;
+  codename: { us: string; il: string };
   startDate: string;
   status: ConflictStatus;
   threatLevel: ThreatLevel;
+  region: string;
+  escalation: number;
   summary: string;
+  keyFacts: string[];
   objectives: { us: string; il: string };
   commanders: { us: string[]; il: string[]; ir: string[] };
 }

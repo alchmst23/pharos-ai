@@ -1,4 +1,5 @@
 'use client';
+import { useMemo } from 'react';
 import { fmtTime } from '@/lib/format';
 import { CheckCircle, ArrowRight } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -29,6 +30,15 @@ interface Props {
 
 export function EventLog({ events, selectedId, onSelect }: Props) {
   const { data: allPosts } = useXPosts();
+
+  const eventPostCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of allPosts ?? []) {
+      if (p.eventId) map.set(p.eventId, (map.get(p.eventId) ?? 0) + 1);
+    }
+    return map;
+  }, [allPosts]);
+
   const grouped = groupByDate(events);
 
   return (
@@ -58,7 +68,7 @@ export function EventLog({ events, selectedId, onSelect }: Props) {
               const isOn = selectedId === evt.id;
               const sc   = SEV_C[evt.severity] ?? 'var(--info)';
               const sbg  = SEV_BG[evt.severity] ?? 'var(--info-dim)';
-              const xc   = (allPosts ?? []).filter(p => p.eventId === evt.id).length;
+              const xc   = eventPostCounts.get(evt.id) ?? 0;
               return (
                 <Button
                   key={evt.id}

@@ -1,4 +1,5 @@
 'use client';
+import { useMemo } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +23,15 @@ type Props = {
 export function ActorList({ selectedId, onSelect, currentDay, onDayChange }: Props) {
   const { data: actors } = useActors();
   const { data: allPosts } = useXPosts();
+
+  const actorPostCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of allPosts ?? []) {
+      if (p.actorId) map.set(p.actorId, (map.get(p.actorId) ?? 0) + 1);
+    }
+    return map;
+  }, [allPosts]);
+
   // Sort actors by selected day's activity score
   const sorted = [...(actors ?? [])].sort((a, b) =>
     (getActorForDay(b, currentDay)?.activityScore ?? 0) - (getActorForDay(a, currentDay)?.activityScore ?? 0)
@@ -51,7 +61,7 @@ export function ActorList({ selectedId, onSelect, currentDay, onDayChange }: Pro
           const isOn   = selectedId === actor.id;
           const actC   = ACT_C[snap.activityLevel] ?? 'var(--t2)';
           const staC   = STA_C[snap.stance] ?? 'var(--t2)';
-          const xCount = (allPosts ?? []).filter(p => p.actorId === actor.id).length;
+          const xCount = actorPostCounts.get(actor.id) ?? 0;
           return (
             <Button
               key={actor.id}
