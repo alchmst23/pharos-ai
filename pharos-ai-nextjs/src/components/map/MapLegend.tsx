@@ -20,15 +20,16 @@ const ITEMS: LegendItem[] = [
   { shape: 'zone',   color: 'var(--warning)', label: 'PATROL / NFZ'       },
 ];
 
-type Props = { hasPanel: boolean };
+type Props = { hasPanel: boolean; timelineVisible?: boolean };
 
-export default function MapLegend({ hasPanel }: Props) {
+export default function MapLegend({ hasPanel, timelineVisible = true }: Props) {
+  const bottom = timelineVisible ? 56 : 12;
   const [isCollapsed, setIsCollapsed] = useState(true);
 
   return (
     <div style={{
       position:      'absolute',
-      bottom:        56,
+      bottom,
       left:          12,
       background:    'rgba(28,33,39,0.92)',
       border:        '1px solid var(--bd)',

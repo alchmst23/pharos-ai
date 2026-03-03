@@ -106,13 +106,13 @@ export default function FullMapPage({ embedded = false }: { embedded?: boolean }
         </DeckGL>
 
         <MapOverlays activeStory={activeStory} onClearStory={() => dispatch(setActiveStoryAction(null))} sidebarOpen={sidebarOpen} onToggleSidebar={() => dispatch(toggleSidebarAction())} embedded={embedded} />
-        {overlayVisibility.legend && <MapLegend hasPanel={!!selectedItem} />}
-        <MapControls viewState={viewState} mapStyle={mapStyle} hasPanel={!!selectedItem} onStyleChange={style => dispatch(setMapStyleAction(style))} />
+        {overlayVisibility.legend && <MapLegend hasPanel={!!selectedItem} timelineVisible={overlayVisibility.timeline} />}
+        <MapControls viewState={viewState} mapStyle={mapStyle} hasPanel={!!selectedItem} timelineVisible={overlayVisibility.timeline} onStyleChange={style => dispatch(setMapStyleAction(style))} />
 
         {/* Visibility menu — above map controls */}
         <div style={{
           position: 'absolute',
-          bottom:   118,
+          bottom:   overlayVisibility.timeline ? 118 : 74,
           right:    selectedItem ? 332 : 12,
           zIndex:   10,
           transition: 'right 0.22s cubic-bezier(0.4,0,0.2,1)',
