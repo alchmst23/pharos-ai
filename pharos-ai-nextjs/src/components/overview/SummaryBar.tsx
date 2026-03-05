@@ -4,11 +4,23 @@ import { fmtDate }  from '@/lib/format';
 import { useConflict } from '@/api/conflicts';
 import { useEvents } from '@/api/events';
 import { useIsLandscapePhone } from '@/hooks/use-is-landscape-phone';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export function SummaryBar() {
-  const { data: conflict } = useConflict();
-  const { data: events } = useEvents();
+  const { data: conflict, isLoading: conflictLoading } = useConflict();
+  const { data: events, isLoading: eventsLoading } = useEvents();
   const isLandscapePhone = useIsLandscapePhone();
+
+  if (conflictLoading || eventsLoading) {
+    return (
+      <div className={`flex items-center gap-1.5 shrink-0 overflow-x-auto bg-[var(--bg-app)] border-b border-[var(--bd)] ${isLandscapePhone ? 'h-8 safe-px' : 'h-9 px-4'}`}>
+        <Skeleton className="h-3 w-14 bg-[var(--bg-3)]" />
+        <Skeleton className="h-3 w-20 bg-[var(--bg-3)]" />
+        <Skeleton className="h-3 w-16 bg-[var(--bg-3)]" />
+        <Skeleton className="h-3 w-32 bg-[var(--bg-3)] ml-auto" />
+      </div>
+    );
+  }
 
   if (!conflict || !events) return null;
 

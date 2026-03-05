@@ -29,7 +29,7 @@ export function useMapPage({ isMobile }: { isMobile: boolean }) {
   const selectedItem = useAppSelector(s => s.map.selectedItem);
   const sidebarOpen  = useAppSelector(s => s.map.sidebarOpen);
   const mapStyle     = useAppSelector(s => s.map.mapStyle);
-  const { data: stories = [] } = useMapStories();
+  const { data: stories = [], isLoading: storiesLoading } = useMapStories();
 
   const [overlayVisibility, setOverlayVisibility] = useState<OverlayVisibility>(() => (
     typeof window !== 'undefined' && window.matchMedia('(max-width: 1024px)').matches
@@ -71,6 +71,7 @@ export function useMapPage({ isMobile }: { isMobile: boolean }) {
   }, [dispatch]);
 
   const showTimeline = overlayVisibility.timeline && !(isMobile && !!selectedItem);
+  const isLoading = storiesLoading || f.isLoading;
 
   return {
     dispatch,
@@ -87,6 +88,7 @@ export function useMapPage({ isMobile }: { isMobile: boolean }) {
     layers,
     handleMapClick,
     showTimeline,
+    isLoading,
     // Actions (pre-bound for convenience)
     setViewState:    (vs: MapViewState) => { dispatch(setViewStateAction(vs)); },
     activateStory:   (story: Parameters<typeof activateStoryAction>[0]) => dispatch(activateStoryAction(story)),

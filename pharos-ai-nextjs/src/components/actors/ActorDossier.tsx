@@ -13,6 +13,7 @@ import { useXPostsByActor } from '@/api/x-posts';
 import { useConflictDay } from '@/hooks/use-conflict-day';
 import type { Actor, XPost } from '@/types/domain';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 
 type DossierTab = 'intel' | 'signals' | 'military';
 
@@ -42,7 +43,15 @@ export function ActorDossier({ actor, tab, onTabChange, currentDay, compact = fa
   ];
   if (iso3) tabs.push({ value: 'military', label: 'MILITARY PROFILE' });
 
-  if (!snap) return null;
+  if (!snap) {
+    return (
+      <div className={cn(pageScroll ? 'flex flex-col p-3 gap-2' : 'flex-1 flex flex-col p-3 gap-2')}>
+        <Skeleton className="h-10 w-full bg-[var(--bg-3)]" />
+        <Skeleton className="h-8 w-full bg-[var(--bg-3)]" />
+        <Skeleton className="h-24 w-full bg-[var(--bg-3)]" />
+      </div>
+    );
+  }
 
   return (
     <div className={cn(pageScroll ? 'flex flex-col' : 'flex-1 flex flex-col overflow-hidden')}>

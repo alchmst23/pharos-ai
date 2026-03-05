@@ -5,6 +5,7 @@ import { SummaryBar } from '@/components/overview/SummaryBar';
 import { WorkspaceDashboard } from '@/components/dashboard/WorkspaceDashboard';
 import { useIsLandscapePhone } from '@/hooks/use-is-landscape-phone';
 import { useLandscapeScrollEmitter } from '@/hooks/use-landscape-scroll-emitter';
+import { OverviewScreenSkeleton } from '@/components/loading/screen-skeletons';
 
 export default function OverviewPage() {
   const isLandscapePhone = useIsLandscapePhone();
@@ -15,7 +16,7 @@ export default function OverviewPage() {
       className={`flex flex-col flex-1 min-h-0 bg-[var(--bg-1)] ${isLandscapePhone ? 'overflow-y-auto' : 'overflow-hidden'}`}
       onScroll={isLandscapePhone ? onLandscapeScroll : undefined}
     >
-      <Suspense fallback={<div className="flex-1" />}>
+      <Suspense fallback={<OverviewScreenSkeleton />}>
         <SummaryBar />
         <WorkspaceDashboard />
       </Suspense>

@@ -37,6 +37,7 @@ import { useConflict, useConflictDays } from '@/api/conflicts';
 import { useEvents } from '@/api/events';
 import { useActors } from '@/api/actors';
 import { useXPosts } from '@/api/x-posts';
+import { MobileOverviewSkeleton, OverviewScreenSkeleton } from '@/components/loading/screen-skeletons';
 
 // Dashboard context — provides day + API data to all widgets
 interface DashData {
@@ -504,16 +505,17 @@ export function WorkspaceDashboard() {
   const isMobile = useIsMobile(1024);
   const isLandscapePhone = useIsLandscapePhone();
 
-  const { data: bootstrap } = useBootstrap();
+  const { data: bootstrap, isLoading: bootstrapLoading } = useBootstrap();
   const allDays = bootstrap?.days ?? [];
   const [dashDay, setDashDay] = useState<string>('');
   const effectiveDashDay = dashDay || allDays[allDays.length - 1] || '';
 
-  const { data: conflict } = useConflict();
-  const { data: snapshots } = useConflictDays();
-  const { data: events } = useEvents();
-  const { data: actors } = useActors();
-  const { data: xPosts } = useXPosts();
+  const { data: conflict, isLoading: conflictLoading } = useConflict();
+  const { data: snapshots, isLoading: snapshotsLoading } = useConflictDays();
+  const { data: events, isLoading: eventsLoading } = useEvents();
+  const { data: actors, isLoading: actorsLoading } = useActors();
+  const { data: xPosts, isLoading: postsLoading } = useXPosts();
+  const isDashboardLoading = bootstrapLoading || conflictLoading || snapshotsLoading || eventsLoading || actorsLoading || postsLoading;
 
   // All widgets not yet placed anywhere
   const usedWidgets = columns.flatMap(c => c.widgets);
@@ -532,7 +534,12 @@ export function WorkspaceDashboard() {
   };
 
   // Mobile: completely different overview — no widgets, no presets
-  if (isMobile || isLandscapePhone) return <MobileOverview />;
+  if (isMobile || isLandscapePhone) {
+    if (isDashboardLoading) return <MobileOverviewSkeleton />;
+    return <MobileOverview />;
+  }
+
+  if (isDashboardLoading) return <OverviewScreenSkeleton />;
 
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-[var(--bg-1)] overflow-hidden">

@@ -11,18 +11,20 @@ import { useActors } from '@/api/actors';
 import { BRIEF_SOURCES, TIER_C } from '@/components/brief/brief-constants';
 import { useIsLandscapePhone } from '@/hooks/use-is-landscape-phone';
 import { useLandscapeScrollEmitter } from '@/hooks/use-landscape-scroll-emitter';
+import { BriefScreenSkeleton } from '@/components/loading/screen-skeletons';
 
 const MAJOR_IDS = ['us', 'idf', 'iran', 'irgc', 'houthis'];
 
 export function BriefContent() {
   const { currentDay, setDay, dayLabel, dayIndex } = useConflictDay();
-  const { data: snapshot } = useConflictDaySnapshot(undefined, currentDay || undefined);
-  const { data: actors } = useActors(undefined, currentDay || undefined);
+  const { data: snapshot, isLoading: snapshotLoading } = useConflictDaySnapshot(undefined, currentDay || undefined);
+  const { data: actors, isLoading: actorsLoading } = useActors(undefined, currentDay || undefined);
   const isLandscapePhone = useIsLandscapePhone();
   const onLandscapeScroll = useLandscapeScrollEmitter(isLandscapePhone);
 
   const majorActors = actors?.filter(a => MAJOR_IDS.includes(a.id)) ?? [];
 
+  if (snapshotLoading || actorsLoading) return <BriefScreenSkeleton />;
   if (!snapshot) return null;
 
   const content = (

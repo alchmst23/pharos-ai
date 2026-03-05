@@ -16,6 +16,7 @@ import { EventLog } from '@/components/feed/EventLog';
 import { EventDetail } from '@/components/feed/EventDetail';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { getEventsForDay } from '@/lib/day-filter';
+import { ListDetailScreenSkeleton } from '@/components/loading/screen-skeletons';
 
 export function FeedContent() {
   const initEvent = useMemo(() => {
@@ -27,7 +28,7 @@ export function FeedContent() {
   const usePageScroll = isMobile && isLandscapePhone;
   const onLandscapeScroll = useLandscapeScrollEmitter(usePageScroll);
   const { currentDay, setDay, allDays } = useConflictDay();
-  const { data: allEvents } = useEvents();
+  const { data: allEvents, isLoading } = useEvents();
   const [showAllDays, setShowAllDays] = useState(true);
 
   const [sevFilter,  setSevFilter]  = useState<Record<Severity, boolean>>({ CRITICAL: true, HIGH: true, STANDARD: true });
@@ -52,6 +53,8 @@ export function FeedContent() {
   }, [sevFilter, typeFilter, verOnly, currentDay, showAllDays, allEvents, allDays]);
 
   const selected = allEvents?.find(e => e.id === selId) ?? null;
+
+  if (isLoading) return <ListDetailScreenSkeleton />;
 
   if (isMobile) {
     return (

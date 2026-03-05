@@ -14,6 +14,7 @@ import { ActorList } from '@/components/actors/ActorList';
 import { ActorDossier } from '@/components/actors/ActorDossier';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { DaySelector } from '@/components/shared/DaySelector';
+import { ListDetailScreenSkeleton } from '@/components/loading/screen-skeletons';
 
 export function ActorsContent() {
   const initActor = useMemo(() => {
@@ -30,8 +31,10 @@ export function ActorsContent() {
   const [tab,   setTab]   = useState<'intel' | 'signals' | 'military'>('intel');
   const { defaultLayout, onLayoutChanged } = usePanelLayout({ id: 'actors' });
 
-  const { data: actors } = useActors();
+  const { data: actors, isLoading } = useActors();
   const selected = actors?.find(a => a.id === selId) ?? null;
+
+  if (isLoading) return <ListDetailScreenSkeleton />;
 
   if (isMobile) {
     return (

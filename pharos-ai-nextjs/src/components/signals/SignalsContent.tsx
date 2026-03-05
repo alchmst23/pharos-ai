@@ -15,6 +15,7 @@ import { SignalFilterRail, type Significance, type AccountType } from '@/compone
 import { SectionHeader } from '@/components/signals/SectionHeader';
 import { getPostsForDay } from '@/lib/day-filter';
 import { timeAgo } from '@/lib/format';
+import { ListDetailScreenSkeleton } from '@/components/loading/screen-skeletons';
 
 export function SignalsContent() {
   const isMobile = useIsMobile(1024);
@@ -27,7 +28,7 @@ export function SignalsContent() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const { defaultLayout, onLayoutChanged } = usePanelLayout({ id: 'signals' });
   const { currentDay, setDay, allDays } = useConflictDay();
-  const { data: allPosts } = useXPosts();
+  const { data: allPosts, isLoading } = useXPosts();
   const [showAll, setShowAll] = useState(true);
 
   const filtered = useMemo(() => {
@@ -104,6 +105,8 @@ export function SignalsContent() {
       pageScroll={usePageScroll}
     />
   );
+
+  if (isLoading) return <ListDetailScreenSkeleton />;
 
   if (isMobile) {
     return (
