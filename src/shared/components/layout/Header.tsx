@@ -1,4 +1,5 @@
 'use client';
+import { Github } from 'lucide-react';
 import Link           from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -162,6 +163,16 @@ export function Header() {
             <span className="mono text-[10px] text-[var(--t4)] tracking-[0.02em]">
               {displayDate} · UTC
             </span>
+
+            {/* GitHub link */}
+            <a
+              href="https://github.com/Juliusolsson05/pharos-ai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[var(--t4)] hover:text-[var(--t2)] transition-colors"
+            >
+              <Github size={14} />
+            </a>
           </div>
         </div>
       )}
